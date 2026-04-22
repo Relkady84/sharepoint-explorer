@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { Spinner, makeStyles, tokens, Text } from "@fluentui/react-components";
@@ -20,28 +21,37 @@ interface AuthGuardProps {
   children: ReactNode;
 }
 
-// MSAL states where we must NOT make auth decisions yet
-const LOADING_STATES = new Set<string>([
-  InteractionStatus.Startup,
-  InteractionStatus.HandleRedirect,
-  InteractionStatus.Login,
-  InteractionStatus.AcquireToken,
-  InteractionStatus.SsoSilent,
-]);
-
 export function AuthGuard({ children }: AuthGuardProps) {
   const styles = useStyles();
   const isAuthenticated = useIsAuthenticated();
   const { inProgress } = useMsal();
 
-  // Wait for MSAL to finish processing before making any auth decision
-  if (LOADING_STATES.has(inProgress)) {
+  // Wait for MSAL to fully settle before making any auth decision.
+  // Without this, React renders before MSAL finishes processing the
+  // redirect callback — causing a false "not authenticated" flash.
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    if (inProgress === InteractionStatus.None) {
+      // Give React one extra tick to sync MSAL account state
+      const timer = setTimeout(() => setSettled(true), 200);
+      return () => clearTimeout(timer);
+    } else {
+      // MSAL is still working (Startup, HandleRedirect, Login...)
+      setSettled(false);
+    }
+  }, [inProgress]);
+
+  // Show spinner while MSAL is processing OR settling
+  if (!settled) {
     return (
       <div className={styles.loading}>
         <Spinner size="large" />
         <Text size={300} style={{ color: tokens.colorNeutralForeground3 }}>
           {inProgress === InteractionStatus.HandleRedirect
             ? "Completing sign-in..."
+            : inProgress === InteractionStatus.Startup
+            ? "Starting..."
             : "Loading..."}
         </Text>
       </div>
