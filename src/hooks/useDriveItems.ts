@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
-import { listDriveRoot, listFolderChildren, listSubfolders, listRootFolders } from "../api/driveApi";
+import { listFolderChildren, listSubfolders, listRootFolders } from "../api/driveApi";
 
 /** List all items (files + folders) in the current folder or root */
 export function useDriveItems(
@@ -14,11 +14,8 @@ export function useDriveItems(
     queryKey: ["driveItems", siteId, driveId, itemId],
     queryFn: async () => {
       const token = await getToken();
-      if (!itemId) {
-        // Root level: use site-based endpoint
-        return listDriveRoot(token, siteId!);
-      }
-      return listFolderChildren(token, driveId!, itemId);
+      // Always use drive-specific endpoints so each library shows its own content
+      return listFolderChildren(token, driveId!, itemId ?? "root");
     },
     enabled: !!siteId && !!driveId,
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -38,8 +35,8 @@ export function useSubfolders(
     queryKey: ["subfolders", driveId, itemId, siteId],
     queryFn: async () => {
       const token = await getToken();
-      if (!itemId && siteId) {
-        return listRootFolders(token, siteId);
+      if (!itemId && driveId) {
+        return listRootFolders(token, driveId);
       }
       return listSubfolders(token, driveId!, itemId!);
     },

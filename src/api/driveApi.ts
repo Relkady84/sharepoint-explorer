@@ -52,11 +52,14 @@ export async function listSubfolders(
   return items.filter((item) => !!item.folder);
 }
 
-/** Get root-level folders for the drive tree */
+/** Get root-level folders for a specific drive (for the folder tree) */
 export async function listRootFolders(
   token: string,
-  siteId: string
+  driveId: string
 ): Promise<DriveItem[]> {
-  const items = await listDriveRoot(token, siteId);
-  return items.filter((item) => !!item.folder);
+  const client = createGraphClient(token);
+  const res = await client.get<{ value: DriveItem[] }>(
+    `/drives/${driveId}/root/children?$select=${SELECT_FIELDS}&$top=500`
+  );
+  return res.data.value.filter((item) => !!item.folder);
 }
