@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Write-Output \"CWD: $\\(Get-Location\\)\"; Get-ChildItem -Path \"C:\\\\Users\\\\raede\" | Select-Object -First 20 | Format-Table Name, LastWriteTime -AutoSize)",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\raede\\\\OneDrive - lycee-montaigne.edu.lb\\\\Documents\\\\GitHub\\\\Sharepoint\"; npm create vite@latest . -- --template react-ts 2>&1)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\raede\\\\OneDrive - lycee-montaigne.edu.lb\\\\Documents\\\\GitHub\\\\Sharepoint\\\\.github\\\\workflows\")"
+    ]
+  }
+}
