@@ -2,6 +2,8 @@ import { makeStyles, tokens } from "@fluentui/react-components";
 import { TopBar } from "./TopBar";
 import { SidebarPanel } from "./SidebarPanel";
 import { FileListPanel } from "../files/FileListPanel";
+import { DepartmentsPage } from "../departments/DepartmentsPage";
+import { useNavigationStore } from "../../store/navigationStore";
 
 const useStyles = makeStyles({
   root: {
@@ -27,6 +29,7 @@ const useStyles = makeStyles({
 
 export function AppShell() {
   const styles = useStyles();
+  const { activeView } = useNavigationStore();
 
   return (
     <div className={styles.root}>
@@ -34,7 +37,7 @@ export function AppShell() {
       <div className={styles.body}>
         <SidebarPanel />
         <main className={styles.main}>
-          <FileListPanel />
+          {activeView === "departments" ? <DepartmentsPage /> : <FileListPanel />}
         </main>
       </div>
     </div>

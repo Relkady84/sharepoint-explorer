@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { BreadcrumbItem } from "../types/graph";
 
+export type AppView = "explorer" | "departments";
+
 interface NavigationState {
   // Current site
   siteId: string | null;
@@ -16,12 +18,16 @@ interface NavigationState {
   // Search query
   searchQuery: string;
 
+  // Active view
+  activeView: AppView;
+
   // Actions
   setSite: (siteId: string, siteName: string, driveId: string) => void;
   navigateTo: (item: BreadcrumbItem) => void;
   navigateToBreadcrumb: (index: number) => void;
   navigateToRoot: () => void;
   setSearchQuery: (query: string) => void;
+  setActiveView: (view: AppView) => void;
   reset: () => void;
 }
 
@@ -32,6 +38,7 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   currentItemId: null,
   breadcrumbs: [],
   searchQuery: "",
+  activeView: "explorer",
 
   setSite: (siteId, siteName, driveId) =>
     set({
@@ -70,6 +77,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 
+  setActiveView: (view) => set({ activeView: view }),
+
   reset: () =>
     set({
       siteId: null,
@@ -78,5 +87,6 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       currentItemId: null,
       breadcrumbs: [],
       searchQuery: "",
+      activeView: "explorer",
     }),
 }));
