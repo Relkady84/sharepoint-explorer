@@ -9,46 +9,62 @@ import { msalConfig } from "./auth/msalConfig";
 import App from "./App";
 import "./index.css";
 
-// Create MSAL instance — single instance for the entire app
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// If an account is already cached, set it as active immediately
-if (msalInstance.getAllAccounts().length > 0) {
-  msalInstance.setActiveAccount(msalInstance.getAllAccounts()[0]);
-}
-
-// Keep active account in sync after every login
-msalInstance.addEventCallback((event) => {
-  if (
-    event.eventType === EventType.LOGIN_SUCCESS &&
-    event.payload &&
-    "account" in event.payload &&
-    event.payload.account
-  ) {
-    msalInstance.setActiveAccount(event.payload.account);
-  }
-});
-
-// Configure React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
       retry: 1,
     },
   },
 });
 
-// MsalProvider (msal-react v2) calls initialize() internally before rendering children
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <MsalProvider instance={msalInstance}>
-      <QueryClientProvider client={queryClient}>
-        <FluentProvider theme={webLightTheme}>
-          <App />
-        </FluentProvider>
-        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-      </QueryClientProvider>
-    </MsalProvider>
-  </React.StrictMode>
-);
+async function bootstrap() {
+  // Step 1: Initialize MSAL (required in v3)
+  await msalInstance.initialize();
+
+  // Step 2: Handle the redirect response BEFORE React renders.
+  // This is the key fix — by the time React mounts, the account is already set.
+  try {
+    const redirectResult = await msalInstance.handleRedirectPromise();
+    if (redirectResult?.account) {
+      msalInstance.setActiveAccount(redirectResult.account);
+    }
+  } catch (error) {
+    console.error("Redirect handling error:", error);
+  }
+
+  // Step 3: If no active account, pick the first cached account
+  if (!msalInstance.getActiveAccount() && msalInstance.getAllAccounts().length > 0) {
+    msalInstance.setActiveAccount(msalInstance.getAllAccounts()[0]);
+  }
+
+  // Step 4: Keep active account in sync on future logins
+  msalInstance.addEventCallback((event) => {
+    if (
+      event.eventType === EventType.LOGIN_SUCCESS &&
+      event.payload &&
+      "account" in event.payload &&
+      event.payload.account
+    ) {
+      msalInstance.setActiveAccount(event.payload.account);
+    }
+  });
+
+  // Step 5: Now render React — MSAL is fully ready, account is set
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <MsalProvider instance={msalInstance}>
+        <QueryClientProvider client={queryClient}>
+          <FluentProvider theme={webLightTheme}>
+            <App />
+          </FluentProvider>
+          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        </QueryClientProvider>
+      </MsalProvider>
+    </React.StrictMode>
+  );
+}
+
+bootstrap().catch(console.error);
