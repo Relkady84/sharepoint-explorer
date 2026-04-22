@@ -6,7 +6,8 @@
       "PowerShell(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\raede\\\\OneDrive - lycee-montaigne.edu.lb\\\\Documents\\\\GitHub\\\\Sharepoint\\\\.github\\\\workflows\")",
       "PowerShell(npm install -g firebase-tools 2>&1)",
       "PowerShell(netstat -ano)",
-      "PowerShell(taskkill /PID 34660 /F 2>&1)"
+      "PowerShell(taskkill /PID 34660 /F 2>&1)",
+      "Bash(npx tsc *)"
     ]
   }
 }
