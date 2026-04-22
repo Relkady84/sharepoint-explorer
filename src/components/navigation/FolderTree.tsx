@@ -8,10 +8,12 @@ import {
   mergeClasses,
   tokens,
 } from "@fluentui/react-components";
-import { Home20Regular } from "@fluentui/react-icons";
+import { FolderRegular } from "@fluentui/react-icons";
 import { useSubfolders } from "../../hooks/useDriveItems";
+import { useDrives } from "../../hooks/useDrives";
 import { useNavigationStore } from "../../store/navigationStore";
 import { FolderTreeItem } from "./FolderTreeItem";
+import type { Drive } from "../../types/graph";
 
 const useStyles = makeStyles({
   root: {
@@ -23,25 +25,75 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     textAlign: "center",
   },
-  homeItem: {
+  libraryItem: {
     cursor: "pointer",
     fontWeight: tokens.fontWeightSemibold,
   },
-  homeActive: {
+  libraryActive: {
     backgroundColor: tokens.colorBrandBackground2,
   },
 });
 
-export function FolderTree() {
-  const styles = useStyles();
-  const { siteId, driveId, currentItemId, navigateToRoot } = useNavigationStore();
+interface LibraryTreeProps {
+  drive: Drive;
+  siteId: string;
+}
 
-  const { data: rootFolders, isLoading, isError } = useSubfolders(
-    driveId,
+function LibraryTree({ drive, siteId }: LibraryTreeProps) {
+  const styles = useStyles();
+  const { currentItemId, driveId, navigateToRoot, setSite, siteName } = useNavigationStore();
+
+  const isRootActive = driveId === drive.id && currentItemId === null;
+
+  const { data: rootFolders, isLoading } = useSubfolders(
+    drive.id,
     null,
     siteId,
-    !!siteId && !!driveId
+    true
   );
+
+  const handleRootClick = () => {
+    if (driveId !== drive.id) {
+      // Switch to this drive's root
+      setSite(siteId, siteName, drive.id);
+    } else {
+      navigateToRoot();
+    }
+  };
+
+  return (
+    <TreeItem
+      itemType="branch"
+      className={mergeClasses(styles.libraryItem, isRootActive && styles.libraryActive)}
+      open
+    >
+      <TreeItemLayout
+        iconBefore={<FolderRegular />}
+        onClick={handleRootClick}
+      >
+        {drive.name}
+      </TreeItemLayout>
+      <Tree>
+        {isLoading ? (
+          <TreeItem itemType="leaf">
+            <TreeItemLayout>
+              <Spinner size="tiny" />
+            </TreeItemLayout>
+          </TreeItem>
+        ) : (
+          (rootFolders ?? []).map((folder) => (
+            <FolderTreeItem key={folder.id} folder={folder} />
+          ))
+        )}
+      </Tree>
+    </TreeItem>
+  );
+}
+
+export function FolderTree() {
+  const styles = useStyles();
+  const { siteId } = useNavigationStore();
+  const { data: drives, isLoading, isError } = useDrives(siteId);
 
   if (!siteId) {
     return (
@@ -54,7 +106,7 @@ export function FolderTree() {
   if (isLoading) {
     return (
       <div className={styles.empty}>
-        <Spinner size="small" label="Loading folders..." />
+        <Spinner size="small" label="Loading libraries..." />
       </div>
     );
   }
@@ -63,35 +115,18 @@ export function FolderTree() {
     return (
       <div className={styles.empty}>
         <Text style={{ color: tokens.colorPaletteRedForeground1 }}>
-          Failed to load folders
+          Failed to load libraries
         </Text>
       </div>
     );
   }
 
-  const isRootActive = currentItemId === null;
-
   return (
     <div className={styles.root}>
-      <Tree aria-label="Folder navigation">
-        {/* Root / Home item */}
-        <TreeItem
-          itemType="branch"
-          className={mergeClasses(styles.homeItem, isRootActive && styles.homeActive)}
-          open
-        >
-          <TreeItemLayout
-            iconBefore={<Home20Regular />}
-            onClick={navigateToRoot}
-          >
-            Documents
-          </TreeItemLayout>
-          <Tree>
-            {(rootFolders ?? []).map((folder) => (
-              <FolderTreeItem key={folder.id} folder={folder} />
-            ))}
-          </Tree>
-        </TreeItem>
+      <Tree aria-label="Document libraries">
+        {(drives ?? []).map((drive) => (
+          <LibraryTree key={drive.id} drive={drive} siteId={siteId} />
+        ))}
       </Tree>
     </div>
   );

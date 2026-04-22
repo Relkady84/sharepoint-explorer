@@ -27,3 +27,13 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Firebase service account keys — NEVER commit these
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!firebase.json
+!staticwebapp.config.json
+Secret*/
+*firebase-adminsdk*
