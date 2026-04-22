@@ -10,7 +10,10 @@ export function useAuth() {
   const account = instance.getActiveAccount() ?? accounts[0] ?? null;
 
   const login = () => {
-    instance.loginRedirect(loginRequest).catch(console.error);
+    instance.loginRedirect({
+      ...loginRequest,
+      redirectStartPage: window.location.origin, // Always return to home, not /login
+    }).catch(console.error);
   };
 
   const logout = () => {

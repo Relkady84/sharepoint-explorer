@@ -4,6 +4,8 @@ import {
   Button,
   Text,
 } from "@fluentui/react-components";
+import { Navigate } from "react-router-dom";
+import { useIsAuthenticated } from "@azure/msal-react";
 import { useAuth } from "../../auth/useAuth";
 
 const useStyles = makeStyles({
@@ -91,6 +93,12 @@ function SharePointIcon() {
 export function LoginPage() {
   const styles = useStyles();
   const { login } = useAuth();
+  const isAuthenticated = useIsAuthenticated();
+
+  // If already authenticated (e.g. after redirect), go straight to the app
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className={styles.root}>
