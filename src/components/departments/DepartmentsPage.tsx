@@ -262,7 +262,7 @@ export function DepartmentsPage() {
   const [search, setSearch] = useState("");
   const { siteId, setActiveView } = useNavigationStore();
 
-  const { myPins, allPins, isLoading, error, isAdmin, remove } = useAppPins();
+  const { myPins, allPins, isLoading, error, isAdmin, userEmail, remove } = useAppPins();
 
   // Admin sees all pins; regular user sees only theirs
   const pinsToShow = isAdmin ? allPins : myPins;
@@ -365,6 +365,11 @@ export function DepartmentsPage() {
         <Text size={500} weight="semibold" style={{ color: tokens.colorNeutralForeground2 }}>
           {isAdmin ? "Aucune épingle configurée" : "Aucun dossier disponible"}
         </Text>
+        {!isAdmin && (
+          <Text size={200} style={{ color: tokens.colorNeutralForeground3, fontFamily: "monospace" }}>
+            (email de connexion : {userEmail})
+          </Text>
+        )}
         {isAdmin ? (
           <div className={styles.instructions}>
             <Text weight="semibold" size={300}>Comment ajouter des dossiers :</Text>
