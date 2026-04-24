@@ -3,10 +3,11 @@ import {
   Option,
   Spinner,
   Text,
+  Button,
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
-import { Globe24Regular } from "@fluentui/react-icons";
+import { Globe24Regular, ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { useSites } from "../../hooks/useSites";
 import { useNavigationStore } from "../../store/navigationStore";
 import { getSiteDrive } from "../../api/sitesApi";
@@ -33,11 +34,20 @@ const useStyles = makeStyles({
   dropdown: {
     width: "100%",
   },
+  errorBox: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  errorText: {
+    color: tokens.colorPaletteRedForeground1,
+    fontSize: tokens.fontSizeBase100,
+  },
 });
 
 export function SiteSelector() {
   const styles = useStyles();
-  const { data: sites, isLoading, isError } = useSites();
+  const { data: sites, isLoading, isError, error, refetch } = useSites();
   const { setSite } = useNavigationStore();
   const { getToken } = useAuth();
 
@@ -53,6 +63,16 @@ export function SiteSelector() {
     }
   };
 
+  // Extract a readable error message
+  const errorMessage = (() => {
+    if (!error) return "Failed to load sites";
+    const msg = (error as { message?: string })?.message ?? String(error);
+    if (msg.includes("403")) return "Access denied (403) — check API permissions";
+    if (msg.includes("401")) return "Not authorised (401) — please sign out and back in";
+    if (msg.includes("Network")) return "Network error — check your connection";
+    return msg.slice(0, 80);
+  })();
+
   return (
     <div className={styles.wrapper}>
       <Text className={styles.label}>
@@ -62,9 +82,17 @@ export function SiteSelector() {
       {isLoading ? (
         <Spinner size="tiny" label="Loading sites..." />
       ) : isError ? (
-        <Text size={200} style={{ color: tokens.colorPaletteRedForeground1 }}>
-          Failed to load sites
-        </Text>
+        <div className={styles.errorBox}>
+          <Text className={styles.errorText}>{errorMessage}</Text>
+          <Button
+            size="small"
+            appearance="outline"
+            icon={<ArrowClockwiseRegular />}
+            onClick={() => refetch()}
+          >
+            Retry
+          </Button>
+        </div>
       ) : (
         <Dropdown
           className={styles.dropdown}
