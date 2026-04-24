@@ -60,11 +60,14 @@ export function useAppPins() {
   // ── Pins the current user should see ──
   const myPins = useMemo(() => {
     return allPins.filter((pin) => {
-      const raw = pin.assignedTo.trim().toLowerCase();
+      // Strip HTML tags — SharePoint "Multiple lines of text" columns can return
+      // values wrapped in <div>/<p> tags if rich text is enabled on the column.
+      const stripped = pin.assignedTo.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ");
+      const raw = stripped.trim().toLowerCase();
       // empty / wildcard → visible to everyone
       if (!raw || raw === "everyone" || raw === "*" || raw === "all") return true;
-      // otherwise the user's email must be in the comma/semicolon/newline list
-      const emails = raw.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+      // otherwise the user's email must be in the comma/semicolon/newline/space list
+      const emails = raw.split(/[,;\n\r\s]+/).map((s) => s.trim()).filter(Boolean);
       return emails.includes(userEmail);
     });
   }, [allPins, userEmail]);
