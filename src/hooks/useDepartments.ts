@@ -1,52 +1,54 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
-import { getItemByPath, listFolderChildren, searchInFolder } from "../api/driveApi";
+import { listFolderChildren, searchInFolder } from "../api/driveApi";
 
-/** Default path — overridden by whatever the user saves in localStorage */
-export const DEPT_ROOT_PATH_DEFAULT = "organization/dossiers des dpts";
-export const DEPT_PATH_STORAGE_KEY = "dept_root_path";
+// ── Pinned folder (stored by item ID, not path) ──────────────────────────────
 
-export function getDeptRootPath(): string {
-  return localStorage.getItem(DEPT_PATH_STORAGE_KEY) ?? DEPT_ROOT_PATH_DEFAULT;
+const DEPT_PIN_KEY = "dept_pinned_folder";
+
+export interface PinnedFolder {
+  driveId: string;
+  itemId: string;
+  label: string; // display name shown in header
 }
 
-export function saveDeptRootPath(path: string) {
-  localStorage.setItem(DEPT_PATH_STORAGE_KEY, path);
+export function getPinnedFolder(): PinnedFolder | null {
+  try {
+    const raw = localStorage.getItem(DEPT_PIN_KEY);
+    return raw ? (JSON.parse(raw) as PinnedFolder) : null;
+  } catch {
+    return null;
+  }
 }
 
-/** Resolve the departments folder to get its item ID */
-export function useDeptRoot(driveId: string | null, path: string) {
-  const { getToken } = useAuth();
-  return useQuery({
-    queryKey: ["deptRoot", driveId, path],
-    queryFn: async () => {
-      const token = await getToken();
-      return getItemByPath(token, driveId!, path);
-    },
-    enabled: !!driveId && !!path,
-    staleTime: 1000 * 60 * 10,
-    retry: 1,
-  });
+export function savePinnedFolder(driveId: string, itemId: string, label: string) {
+  localStorage.setItem(DEPT_PIN_KEY, JSON.stringify({ driveId, itemId, label }));
 }
+
+export function clearPinnedFolder() {
+  localStorage.removeItem(DEPT_PIN_KEY);
+}
+
+// ── Hooks ────────────────────────────────────────────────────────────────────
 
 /** List all department sub-folders (sorted alphabetically) */
-export function useDeptFolders(driveId: string | null, rootId: string | null) {
+export function useDeptFolders(driveId: string | null, folderId: string | null) {
   const { getToken } = useAuth();
   return useQuery({
-    queryKey: ["deptFolders", driveId, rootId],
+    queryKey: ["deptFolders", driveId, folderId],
     queryFn: async () => {
       const token = await getToken();
-      const items = await listFolderChildren(token, driveId!, rootId!);
+      const items = await listFolderChildren(token, driveId!, folderId!);
       return items
         .filter((item) => !!item.folder)
         .sort((a, b) => a.name.localeCompare(b.name, "fr"));
     },
-    enabled: !!driveId && !!rootId,
+    enabled: !!driveId && !!folderId,
     staleTime: 1000 * 60 * 5,
   });
 }
 
-/** List all items (files + sub-folders) inside one department folder */
+/** List all items inside one department folder */
 export function useDeptFiles(driveId: string | null, folderId: string | null) {
   const { getToken } = useAuth();
   return useQuery({
@@ -55,7 +57,6 @@ export function useDeptFiles(driveId: string | null, folderId: string | null) {
       const token = await getToken();
       const items = await listFolderChildren(token, driveId!, folderId!);
       return items.sort((a, b) => {
-        // Folders first, then alphabetical
         if (!!a.folder !== !!b.folder) return a.folder ? -1 : 1;
         return a.name.localeCompare(b.name, "fr");
       });
@@ -65,20 +66,20 @@ export function useDeptFiles(driveId: string | null, folderId: string | null) {
   });
 }
 
-/** Full-text search within the dossiers des dpts folder tree via Graph API */
+/** Full-text search within the pinned folder tree */
 export function useDeptSearch(
   driveId: string | null,
-  rootId: string | null,
+  folderId: string | null,
   query: string
 ) {
   const { getToken } = useAuth();
   return useQuery({
-    queryKey: ["deptSearch", driveId, rootId, query],
+    queryKey: ["deptSearch", driveId, folderId, query],
     queryFn: async () => {
       const token = await getToken();
-      return searchInFolder(token, driveId!, rootId!, query);
+      return searchInFolder(token, driveId!, folderId!, query);
     },
-    enabled: !!driveId && !!rootId && query.trim().length >= 2,
+    enabled: !!driveId && !!folderId && query.trim().length >= 2,
     staleTime: 30_000,
   });
 }

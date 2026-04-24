@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   makeStyles,
@@ -7,10 +7,16 @@ import {
   Text,
   Tooltip,
 } from "@fluentui/react-components";
-import { ArrowUpload20Regular, ArrowClockwise20Regular } from "@fluentui/react-icons";
+import {
+  ArrowUpload20Regular,
+  ArrowClockwise20Regular,
+  Pin20Regular,
+  CheckmarkCircle20Regular,
+} from "@fluentui/react-icons";
 import { useUpload } from "../../hooks/useUpload";
 import { useNavigationStore } from "../../store/navigationStore";
 import { useQueryClient } from "@tanstack/react-query";
+import { savePinnedFolder } from "../../hooks/useDepartments";
 
 const useStyles = makeStyles({
   toolbar: {
@@ -20,6 +26,7 @@ const useStyles = makeStyles({
     padding: "10px 16px",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
+    flexWrap: "wrap",
   },
   uploadStatus: {
     display: "flex",
@@ -37,14 +44,23 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralStroke2,
     margin: "0 4px",
   },
+  pinConfirm: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorPaletteGreenForeground1,
+    fontWeight: tokens.fontWeightSemibold,
+  },
 });
 
 export function FileToolbar() {
   const styles = useStyles();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { driveId, currentItemId, siteId } = useNavigationStore();
+  const { driveId, currentItemId, siteId, breadcrumbs, activeView } = useNavigationStore();
   const uploadMutation = useUpload();
   const queryClient = useQueryClient();
+  const [pinned, setPinned] = useState(false);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -53,7 +69,6 @@ export function FileToolbar() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!driveId || !siteId || files.length === 0) return;
-
     files.forEach((file) => {
       uploadMutation.mutate({
         driveId,
@@ -62,14 +77,26 @@ export function FileToolbar() {
         file,
       });
     });
-
-    // Reset input
     e.target.value = "";
   };
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["driveItems"] });
   };
+
+  const handlePin = () => {
+    if (!driveId || !currentItemId) return;
+    // Build a readable label from breadcrumbs (last segment = current folder name)
+    const label = breadcrumbs.length > 0
+      ? breadcrumbs.map((b) => b.name).join(" › ")
+      : "Dossier épinglé";
+    savePinnedFolder(driveId, currentItemId, label);
+    setPinned(true);
+    setTimeout(() => setPinned(false), 3000);
+  };
+
+  // Only show the Pin button when in Explorer and inside a folder
+  const showPinButton = activeView === "explorer" && !!currentItemId && !!driveId;
 
   return (
     <div className={styles.toolbar}>
@@ -105,6 +132,35 @@ export function FileToolbar() {
         />
       </Tooltip>
 
+      {/* Pin button — only shown when browsing a subfolder in Explorer */}
+      {showPinButton && (
+        <>
+          <div className={styles.separator} />
+          <Tooltip
+            content="Épingler ce dossier comme racine des Départements"
+            relationship="label"
+          >
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<Pin20Regular />}
+              onClick={handlePin}
+            >
+              Épingler comme Départements
+            </Button>
+          </Tooltip>
+        </>
+      )}
+
+      {/* Pin confirmation */}
+      {pinned && (
+        <span className={styles.pinConfirm}>
+          <CheckmarkCircle20Regular />
+          Dossier épinglé ! Allez dans l'onglet Départements.
+        </span>
+      )}
+
+      {/* Upload status */}
       {uploadMutation.isPending && (
         <div className={styles.uploadStatus}>
           <Spinner size="tiny" />

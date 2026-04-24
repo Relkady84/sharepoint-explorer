@@ -11,11 +11,11 @@ import {
 } from "@fluentui/react-components";
 import {
   FolderRegular,
+  FolderOpenRegular,
   ChevronDown20Regular,
   ChevronRight20Regular,
   ArrowDownload20Regular,
   Open20Regular,
-  FolderOpenRegular,
 } from "@fluentui/react-icons";
 import { useDeptFiles } from "../../hooks/useDepartments";
 import { FileTypeIcon } from "../files/FileTypeIcon";
@@ -33,11 +33,13 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     boxShadow: tokens.shadow2,
   },
+
+  // ── Header ──
   header: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    padding: "14px 16px",
+    padding: "12px 16px",
     cursor: "pointer",
     backgroundColor: tokens.colorNeutralBackground2,
     userSelect: "none",
@@ -45,63 +47,79 @@ const useStyles = makeStyles({
   },
   chevron: { color: tokens.colorNeutralForeground3, flexShrink: 0 },
   folderIcon: { color: tokens.colorBrandForeground1, flexShrink: 0 },
-  title: {
+  headerTitle: {
     flex: 1,
     fontWeight: tokens.fontWeightSemibold,
     fontSize: tokens.fontSizeBase400,
     color: tokens.colorNeutralForeground1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
-  fileList: { padding: "4px 0" },
-  fileRow: {
+
+  // ── File rows (mirrors FileListItem exactly) ──
+  fileList: { padding: "2px 0" },
+  row: {
     display: "grid",
-    gridTemplateColumns: "28px 1fr 90px 130px 68px",
+    gridTemplateColumns: "32px 1fr 100px 140px 72px",
     alignItems: "center",
     gap: "8px",
-    padding: "7px 16px",
+    padding: "8px 16px",
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
+    cursor: "default",
+    "&:last-child": { borderBottom: "none" },
     "&:hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
+    "&:hover .actions": { opacity: 1 },
   },
-  fileName: {
+  nameCell: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    overflow: "hidden",
+    minWidth: 0,
+  },
+  name: {
     fontSize: tokens.fontSizeBase300,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     color: tokens.colorNeutralForeground1,
+    flex: 1,
+    minWidth: 0,
   },
-  subFolderName: {
-    color: tokens.colorBrandForeground1,
+  folderName: {
     fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorBrandForeground1,
   },
   meta: {
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
     textAlign: "right",
+    whiteSpace: "nowrap",
   },
   actions: {
     display: "flex",
-    gap: "2px",
+    gap: "4px",
     justifyContent: "flex-end",
     opacity: 0,
-    transition: "opacity 0.15s",
-    "& button": { minWidth: "auto" },
+    transition: "opacity 0.15s ease",
   },
-  actionsVisible: { opacity: 1 },
-  empty: {
-    padding: "14px 16px",
-    color: tokens.colorNeutralForeground3,
-    fontSize: tokens.fontSizeBase200,
-    fontStyle: "italic",
-  },
+
+  // ── Highlight (search match) ──
   highlight: {
     backgroundColor: tokens.colorPaletteYellowBackground2,
     borderRadius: "2px",
     padding: "0 2px",
     fontWeight: tokens.fontWeightSemibold,
   },
-  loadingRow: { padding: "12px 16px" },
-  divider: {
-    height: "1px",
-    backgroundColor: tokens.colorNeutralStroke2,
-    margin: "0 16px",
+
+  // ── States ──
+  loadingRow: { padding: "14px 16px" },
+  empty: {
+    padding: "14px 16px",
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
+    fontStyle: "italic",
   },
 });
 
@@ -120,7 +138,6 @@ export function DepartmentSection({
 }: Props) {
   const styles = useStyles();
   const [open, setOpen] = useState(defaultOpen);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const { getToken } = useAuth();
 
   const { data: items, isLoading } = useDeptFiles(
@@ -134,7 +151,7 @@ export function DepartmentSection({
       ? (items ?? []).filter((item) => item.name.toLowerCase().includes(q))
       : (items ?? []);
 
-  // Hide whole section when searching and nothing matches
+  // Hide entire section when searching and no files match
   if (q.length >= 1 && !isLoading && filtered.length === 0) return null;
 
   const handleDownload = async (e: React.MouseEvent, item: DriveItem) => {
@@ -165,15 +182,11 @@ export function DepartmentSection({
     return (
       <>
         {text.slice(0, idx)}
-        <mark className={styles.highlight}>
-          {text.slice(idx, idx + q.length)}
-        </mark>
+        <span className={styles.highlight}>{text.slice(idx, idx + q.length)}</span>
         {text.slice(idx + q.length)}
       </>
     );
   };
-
-  const fileCount = filtered.length;
 
   return (
     <div className={styles.section}>
@@ -185,98 +198,75 @@ export function DepartmentSection({
           <ChevronRight20Regular className={styles.chevron} />
         )}
         {open ? (
-          <FolderOpenRegular className={styles.folderIcon} fontSize={20} />
+          <FolderOpenRegular className={styles.folderIcon} />
         ) : (
-          <FolderRegular className={styles.folderIcon} fontSize={20} />
+          <FolderRegular className={styles.folderIcon} />
         )}
-        <Text className={styles.title}>{folder.name}</Text>
+        <Text className={styles.headerTitle}>{folder.name}</Text>
         {items !== undefined && (
           <Badge appearance="filled" color="informative" size="small">
-            {fileCount} {fileCount === 1 ? "fichier" : "fichiers"}
+            {filtered.length}
           </Badge>
         )}
       </div>
 
-      {/* File list */}
+      {/* Body */}
       {open && (
         <div className={styles.fileList}>
           {isLoading ? (
             <div className={styles.loadingRow}>
-              <Spinner size="tiny" label="Chargement..." />
+              <Spinner size="tiny" label="Chargement…" />
             </div>
           ) : filtered.length === 0 ? (
-            <Text className={styles.empty}>
-              Aucun document dans ce département.
-            </Text>
+            <Text className={styles.empty}>Aucun document dans ce département.</Text>
           ) : (
-            filtered.map((item, i) => {
+            filtered.map((item) => {
               const isFolder = !!item.folder;
-              const isHovered = hoveredId === item.id;
               return (
-                <div key={item.id}>
-                  {i > 0 && <div className={styles.divider} />}
-                  <div
-                    className={styles.fileRow}
-                    onMouseEnter={() => setHoveredId(item.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                  >
-                    <FileTypeIcon item={item} size={20} />
+                <div key={item.id} className={styles.row} role="row" aria-label={item.name}>
+                  <FileTypeIcon item={item} size={20} />
 
+                  <div className={styles.nameCell}>
                     <Text
-                      className={mergeClasses(
-                        styles.fileName,
-                        isFolder && styles.subFolderName
-                      )}
+                      className={mergeClasses(styles.name, isFolder && styles.folderName)}
                       title={item.name}
                     >
                       {highlight(item.name)}
                     </Text>
+                  </div>
 
-                    <Text className={styles.meta}>
-                      {isFolder
-                        ? `${item.folder!.childCount} élém.`
-                        : formatFileSize(item.size)}
-                    </Text>
+                  <Text className={styles.meta}>
+                    {isFolder
+                      ? `${item.folder!.childCount} élém.`
+                      : formatFileSize(item.size)}
+                  </Text>
 
-                    <Text className={styles.meta}>
-                      {formatDate(item.lastModifiedDateTime)}
-                    </Text>
+                  <Text className={styles.meta}>
+                    {formatDate(item.lastModifiedDateTime)}
+                  </Text>
 
-                    <div
-                      className={mergeClasses(
-                        styles.actions,
-                        isHovered && styles.actionsVisible
-                      )}
-                    >
-                      {!isFolder && (
-                        <Tooltip content="Télécharger" relationship="label">
-                          <Button
-                            appearance="subtle"
-                            size="small"
-                            icon={<ArrowDownload20Regular />}
-                            onClick={(e) => handleDownload(e, item)}
-                          />
-                        </Tooltip>
-                      )}
-                      <Tooltip
-                        content="Ouvrir dans SharePoint"
-                        relationship="label"
-                      >
+                  <div className={mergeClasses(styles.actions, "actions")}>
+                    {!isFolder && (
+                      <Tooltip content="Télécharger" relationship="label">
                         <Button
                           appearance="subtle"
                           size="small"
-                          icon={<Open20Regular />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(
-                              item.webUrl,
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                          }}
+                          icon={<ArrowDownload20Regular />}
+                          onClick={(e) => handleDownload(e, item)}
                         />
                       </Tooltip>
-                    </div>
+                    )}
+                    <Tooltip content="Ouvrir dans SharePoint" relationship="label">
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={<Open20Regular />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(item.webUrl, "_blank", "noopener,noreferrer");
+                        }}
+                      />
+                    </Tooltip>
                   </div>
                 </div>
               );
