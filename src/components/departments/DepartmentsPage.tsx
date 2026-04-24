@@ -19,6 +19,7 @@ import {
   PinOffRegular,
 } from "@fluentui/react-icons";
 import { useDeptFolders } from "../../hooks/useDepartments";
+import type { DriveItem } from "../../types/graph";
 import { useAppPins, type AppPin } from "../../hooks/useAppPins";
 import { DepartmentSection } from "./DepartmentSection";
 import { AssignPinDialog } from "../files/AssignPinDialog";
@@ -179,6 +180,27 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
   const { data: deptFolders, isLoading } = useDeptFolders(pin.driveId, pin.itemId);
   const visible = deptFolders ?? [];
 
+  // If the pinned folder has no sub-folders (files are directly inside it),
+  // treat the folder itself as the single "department" and show its files directly.
+  const noSubFolders = !isLoading && visible.length === 0;
+  const selfAsFolder: DriveItem | null = noSubFolders
+    ? {
+        id: pin.itemId,
+        name: pin.label,
+        folder: { childCount: 0 },
+        webUrl: "",
+        size: 0,
+        lastModifiedDateTime: "",
+        createdDateTime: "",
+        parentReference: {
+          driveId: pin.driveId,
+          driveType: "documentLibrary",
+          id: pin.itemId,
+          path: "",
+        },
+      }
+    : null;
+
   // Friendly label for who this is assigned to
   const assignedLabel = (() => {
     const raw = pin.assignedTo.trim().toLowerCase();
@@ -238,8 +260,14 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
       {/* Department sections */}
       {isLoading ? (
         <Spinner size="tiny" label="Chargement…" />
-      ) : visible.length === 0 ? (
-        <Text className={styles.noResults}>Aucun sous-dossier trouvé.</Text>
+      ) : selfAsFolder ? (
+        // No sub-folders — show the pinned folder's own files directly
+        <DepartmentSection
+          folder={selfAsFolder}
+          driveId={pin.driveId}
+          searchQuery={search}
+          defaultOpen={true}
+        />
       ) : (
         visible.map((dept) => (
           <DepartmentSection
@@ -366,16 +394,9 @@ export function DepartmentsPage() {
           {isAdmin ? "Aucune épingle configurée" : "Aucun dossier disponible"}
         </Text>
         {!isAdmin && (
-          <div style={{ fontFamily: "monospace", fontSize: "11px", color: tokens.colorNeutralForeground3, textAlign: "left", background: tokens.colorNeutralBackground2, padding: "12px", borderRadius: "8px", maxWidth: "480px" }}>
-            <div>🔑 email : <strong>{userEmail}</strong></div>
-            <div>📋 total pins dans la liste : <strong>{allPins.length}</strong></div>
-            {allPins.map((p, i) => (
-              <div key={i} style={{ marginTop: "6px", borderTop: "1px solid #ccc", paddingTop: "6px" }}>
-                <div>pin {i + 1} : {p.label}</div>
-                <div>assignedTo : "<strong>{p.assignedTo}</strong>"</div>
-              </div>
-            ))}
-          </div>
+          <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+            Contactez votre administrateur pour obtenir l'accès.
+          </Text>
         )}
         {isAdmin ? (
           <div className={styles.instructions}>
