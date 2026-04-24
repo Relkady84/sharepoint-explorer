@@ -366,9 +366,16 @@ export function DepartmentsPage() {
           {isAdmin ? "Aucune épingle configurée" : "Aucun dossier disponible"}
         </Text>
         {!isAdmin && (
-          <Text size={200} style={{ color: tokens.colorNeutralForeground3, fontFamily: "monospace" }}>
-            (email de connexion : {userEmail})
-          </Text>
+          <div style={{ fontFamily: "monospace", fontSize: "11px", color: tokens.colorNeutralForeground3, textAlign: "left", background: tokens.colorNeutralBackground2, padding: "12px", borderRadius: "8px", maxWidth: "480px" }}>
+            <div>🔑 email : <strong>{userEmail}</strong></div>
+            <div>📋 total pins dans la liste : <strong>{allPins.length}</strong></div>
+            {allPins.map((p, i) => (
+              <div key={i} style={{ marginTop: "6px", borderTop: "1px solid #ccc", paddingTop: "6px" }}>
+                <div>pin {i + 1} : {p.label}</div>
+                <div>assignedTo : "<strong>{p.assignedTo}</strong>"</div>
+              </div>
+            ))}
+          </div>
         )}
         {isAdmin ? (
           <div className={styles.instructions}>
