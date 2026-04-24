@@ -73,7 +73,7 @@ async function getFieldMap(token: string, siteId: string, listId: string): Promi
 
   const client = createGraphClient(token);
   const res = await client.get<{ value: { name: string; displayName: string }[] }>(
-    `/sites/${siteId}/lists/${listId}/fields?$select=name,displayName&$top=200`
+    `/sites/${siteId}/lists/${listId}/columns?$select=name,displayName&$top=200`
   );
 
   const fields = res.data.value;
