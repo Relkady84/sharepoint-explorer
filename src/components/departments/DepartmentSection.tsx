@@ -418,7 +418,7 @@ export function DepartmentSection({
   const isSearching = q.length >= 2;
 
   // ── Browse mode: load direct children ──
-  const { data: items, isLoading: browseLoading } = useDeptFiles(
+  const { data: items, isLoading: browseLoading, error: browseError } = useDeptFiles(
     !isSearching && open ? driveId : null,
     !isSearching && open ? folder.id : null
   );
@@ -438,6 +438,9 @@ export function DepartmentSection({
 
   const isLoading = isSearching ? searchLoading : browseLoading;
   const displayItems = isSearching ? (searchResults ?? []) : (items ?? []);
+  const browseErrorMsg = !isSearching && browseError
+    ? ((browseError as { message?: string })?.message ?? String(browseError))
+    : null;
 
   return (
     <div className={styles.section}>
@@ -471,6 +474,10 @@ export function DepartmentSection({
                 {isSearching ? "Recherche…" : "Chargement…"}
               </Text>
             </div>
+          ) : browseErrorMsg ? (
+            <Text className={styles.empty} style={{ color: tokens.colorPaletteRedForeground1 }}>
+              ⚠️ Erreur : {browseErrorMsg}
+            </Text>
           ) : displayItems.length === 0 ? (
             <Text className={styles.empty}>Aucun document dans ce département.</Text>
           ) : isSearching ? (
