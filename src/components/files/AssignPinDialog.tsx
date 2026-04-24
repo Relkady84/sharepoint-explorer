@@ -77,23 +77,16 @@ function parseEmails(raw: string): string[] {
 }
 
 function describeError(msg: string): string {
-  if (msg.includes("400") || msg.toLowerCase().includes("bad request")) {
-    return (
-      "Erreur 400 — Le serveur a rejeté la requête. Cause la plus probable : " +
-      "la colonne « AssignedTo » (Plusieurs lignes de texte) n'existe pas encore " +
-      "dans votre liste AppPins sur SharePoint. Ajoutez-la puis réessayez."
-    );
-  }
   if (msg.includes("403") || msg.toLowerCase().includes("forbidden") || msg.includes("401")) {
-    return (
-      "Accès refusé (403). Vérifiez que vous êtes bien propriétaire du site SharePoint " +
-      "et que la liste AppPins vous autorise à écrire."
-    );
+    return "Accès refusé (403). Vérifiez que vous êtes propriétaire du site SharePoint.";
   }
   if (msg.includes("introuvable") || msg.includes("not found")) {
     return msg;
   }
-  return `Erreur inattendue : ${msg}`;
+  if (msg.includes("400") || msg.toLowerCase().includes("bad request")) {
+    return "Erreur 400 — Requête rejetée par SharePoint.";
+  }
+  return `Erreur : ${msg}`;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -156,7 +149,12 @@ export function AssignPinDialog(props: Props) {
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setErrorMsg(describeError(msg));
+      // Extract SharePoint's detailed error message from the Axios response body
+      const axiosErr = err as { response?: { data?: { error?: { message?: string; code?: string } } } };
+      const spMsg = axiosErr?.response?.data?.error?.message ?? "";
+      const spCode = axiosErr?.response?.data?.error?.code ?? "";
+      const detail = spMsg ? ` — SharePoint: [${spCode}] ${spMsg}` : "";
+      setErrorMsg(describeError(msg) + detail);
     }
   };
 
