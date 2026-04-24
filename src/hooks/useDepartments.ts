@@ -2,19 +2,28 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
 import { getItemByPath, listFolderChildren, searchInFolder } from "../api/driveApi";
 
-/** Path inside the library that contains one sub-folder per department */
-export const DEPT_ROOT_PATH = "organization/dossiers des dpts";
+/** Default path — overridden by whatever the user saves in localStorage */
+export const DEPT_ROOT_PATH_DEFAULT = "organization/dossiers des dpts";
+export const DEPT_PATH_STORAGE_KEY = "dept_root_path";
 
-/** Resolve the "dossiers des dpts" folder to get its item ID */
-export function useDeptRoot(driveId: string | null) {
+export function getDeptRootPath(): string {
+  return localStorage.getItem(DEPT_PATH_STORAGE_KEY) ?? DEPT_ROOT_PATH_DEFAULT;
+}
+
+export function saveDeptRootPath(path: string) {
+  localStorage.setItem(DEPT_PATH_STORAGE_KEY, path);
+}
+
+/** Resolve the departments folder to get its item ID */
+export function useDeptRoot(driveId: string | null, path: string) {
   const { getToken } = useAuth();
   return useQuery({
-    queryKey: ["deptRoot", driveId],
+    queryKey: ["deptRoot", driveId, path],
     queryFn: async () => {
       const token = await getToken();
-      return getItemByPath(token, driveId!, DEPT_ROOT_PATH);
+      return getItemByPath(token, driveId!, path);
     },
-    enabled: !!driveId,
+    enabled: !!driveId && !!path,
     staleTime: 1000 * 60 * 10,
     retry: 1,
   });

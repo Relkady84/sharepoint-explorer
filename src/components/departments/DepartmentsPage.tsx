@@ -12,8 +12,15 @@ import {
   Search20Regular,
   BuildingRegular,
   DismissRegular,
+  FolderSearchRegular,
+  CheckmarkRegular,
 } from "@fluentui/react-icons";
-import { useDeptRoot, useDeptFolders, DEPT_ROOT_PATH } from "../../hooks/useDepartments";
+import {
+  useDeptRoot,
+  useDeptFolders,
+  getDeptRootPath,
+  saveDeptRootPath,
+} from "../../hooks/useDepartments";
 import { DepartmentSection } from "./DepartmentSection";
 import { useNavigationStore } from "../../store/navigationStore";
 import { useDrives } from "../../hooks/useDrives";
@@ -26,8 +33,6 @@ const useStyles = makeStyles({
     overflow: "hidden",
     backgroundColor: tokens.colorNeutralBackground1,
   },
-
-  /* ── Header ── */
   header: {
     padding: "20px 24px 16px",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
@@ -45,39 +50,25 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase600,
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground1,
+    flex: 1,
   },
-  breadcrumb: {
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
-    marginBottom: "14px",
-    display: "block",
-    fontFamily: tokens.fontFamilyMonospace,
-  },
-
-  /* ── Drive selector ── */
   driveRow: {
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    marginBottom: "12px",
+    marginBottom: "10px",
     flexWrap: "wrap",
   },
   driveLabel: {
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
-    marginRight: "2px",
   },
-
-  /* ── Search ── */
   searchRow: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
   },
   searchInput: { flex: 1, maxWidth: "480px" },
-  resultsBadge: { flexShrink: 0 },
-
-  /* ── Content ── */
   content: {
     flex: 1,
     overflowY: "auto",
@@ -96,35 +87,54 @@ const useStyles = makeStyles({
     padding: "40px",
     textAlign: "center",
   },
-  centerIcon: { color: tokens.colorNeutralForeground3, opacity: 0.5 },
+  centerIcon: { color: tokens.colorNeutralForeground3, opacity: 0.4 },
   errorBox: {
     padding: "16px 20px",
     backgroundColor: tokens.colorPaletteRedBackground2,
     borderRadius: tokens.borderRadiusMedium,
     border: `1px solid ${tokens.colorPaletteRedBorder2}`,
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
   },
   errorText: {
     color: tokens.colorPaletteRedForeground1,
+    fontSize: tokens.fontSizeBase300,
+  },
+  errorHint: {
+    color: tokens.colorNeutralForeground2,
     fontSize: tokens.fontSizeBase200,
   },
+  pathRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  pathInput: { flex: 1 },
   noResults: {
     textAlign: "center",
     color: tokens.colorNeutralForeground3,
     padding: "32px 0",
+  },
+  pathHint: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+    fontFamily: tokens.fontFamilyMonospace,
+    marginBottom: "10px",
+    display: "block",
   },
 });
 
 export function DepartmentsPage() {
   const styles = useStyles();
   const [search, setSearch] = useState("");
+  const [deptPath, setDeptPath] = useState(getDeptRootPath);
+  const [pathInput, setPathInput] = useState(getDeptRootPath);
   const { siteId, siteName, driveId, setSite } = useNavigationStore();
   const { data: drives } = useDrives(siteId);
-
-  // Track which drive the user explicitly chose for departments
   const [deptDriveId, setDeptDriveId] = useState<string | null>(null);
 
-  // When drives load, default to the one named "General" (or "Documents partagés"),
-  // otherwise fall back to the store's current driveId
+  // Auto-select "General" or first drive
   useEffect(() => {
     if (!drives || deptDriveId) return;
     const preferred =
@@ -138,11 +148,8 @@ export function DepartmentsPage() {
 
   const activeDriveId = deptDriveId ?? driveId;
 
-  const {
-    data: root,
-    isLoading: rootLoading,
-    isError: rootError,
-  } = useDeptRoot(activeDriveId);
+  const { data: root, isLoading: rootLoading, isError: rootError } =
+    useDeptRoot(activeDriveId, deptPath);
 
   const { data: deptFolders, isLoading: foldersLoading } = useDeptFolders(
     activeDriveId,
@@ -150,9 +157,15 @@ export function DepartmentsPage() {
   );
 
   const isLoading = rootLoading || foldersLoading;
+  const visibleCount =
+    search.trim().length >= 1 ? undefined : deptFolders?.length;
 
-  // Count visible (matching) departments when searching
-  const visibleCount = search.trim().length >= 1 ? undefined : deptFolders?.length;
+  const applyPath = () => {
+    const trimmed = pathInput.trim().replace(/^\/|\/$/g, ""); // strip leading/trailing slashes
+    setDeptPath(trimmed);
+    setPathInput(trimmed);
+    saveDeptRootPath(trimmed);
+  };
 
   /* ── No site selected ── */
   if (!siteId) {
@@ -163,8 +176,7 @@ export function DepartmentsPage() {
           Sélectionnez un site
         </Text>
         <Text style={{ color: tokens.colorNeutralForeground3 }}>
-          Choisissez un site SharePoint dans la barre latérale pour accéder aux
-          dossiers des départements.
+          Choisissez un site SharePoint dans la barre latérale.
         </Text>
       </div>
     );
@@ -184,11 +196,12 @@ export function DepartmentsPage() {
           )}
         </div>
 
-        <Text className={styles.breadcrumb}>
-          {siteName} › {DEPT_ROOT_PATH.replace("/", " › ")}
+        {/* Current path */}
+        <Text className={styles.pathHint}>
+          {siteName} › {deptPath.replace(/\//g, " › ")}
         </Text>
 
-        {/* Drive / library selector */}
+        {/* Library selector */}
         {drives && drives.length > 1 && (
           <div className={styles.driveRow}>
             <Text className={styles.driveLabel}>Bibliothèque :</Text>
@@ -221,7 +234,7 @@ export function DepartmentsPage() {
                   size="small"
                   icon={<DismissRegular />}
                   onClick={() => setSearch("")}
-                  aria-label="Effacer la recherche"
+                  aria-label="Effacer"
                 />
               ) : undefined
             }
@@ -234,22 +247,43 @@ export function DepartmentsPage() {
 
       {/* ── Content ── */}
       <div className={styles.content}>
-        {/* Loading */}
         {isLoading && (
           <div className={styles.center}>
             <Spinner size="medium" label="Chargement des départements…" />
           </div>
         )}
 
-        {/* Error: path not found */}
+        {/* Path not found — show editable path */}
         {rootError && !isLoading && (
           <div className={styles.errorBox}>
             <Text className={styles.errorText}>
-              Dossier introuvable :{" "}
-              <strong>{DEPT_ROOT_PATH}</strong>
-              <br />
-              Vérifiez que la bibliothèque sélectionnée contient bien ce
-              chemin, ou changez de bibliothèque ci-dessus.
+              <FolderSearchRegular style={{ verticalAlign: "middle", marginRight: 6 }} />
+              Dossier introuvable : <strong>{deptPath}</strong>
+            </Text>
+            <Text className={styles.errorHint}>
+              Corrigez le chemin ci-dessous (exactement comme dans SharePoint,
+              sensible à la casse) puis cliquez sur ✓ :
+            </Text>
+            <div className={styles.pathRow}>
+              <Input
+                className={styles.pathInput}
+                value={pathInput}
+                onChange={(_, d) => setPathInput(d.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyPath()}
+                placeholder="ex: Organisation/Dossiers des Dpts"
+              />
+              <Button
+                appearance="primary"
+                icon={<CheckmarkRegular />}
+                onClick={applyPath}
+              >
+                Appliquer
+              </Button>
+            </div>
+            <Text className={styles.errorHint}>
+              💡 Allez dans l'onglet <strong>Explorer</strong>, naviguez
+              jusqu'au dossier voulu, et copiez les noms exacts des dossiers
+              dans ce champ.
             </Text>
           </div>
         )}
@@ -260,7 +294,7 @@ export function DepartmentsPage() {
             {deptFolders.length === 0 ? (
               <div className={styles.center}>
                 <Text style={{ color: tokens.colorNeutralForeground3 }}>
-                  Aucun sous-dossier trouvé dans « dossiers des dpts ».
+                  Aucun sous-dossier trouvé dans ce dossier.
                 </Text>
               </div>
             ) : (
@@ -270,17 +304,19 @@ export function DepartmentsPage() {
                   folder={dept}
                   driveId={activeDriveId!}
                   searchQuery={search}
-                  defaultOpen={search.trim().length > 0 || deptFolders.length <= 6}
+                  defaultOpen={
+                    search.trim().length > 0 || deptFolders.length <= 6
+                  }
                 />
               ))
             )}
 
-            {/* All filtered out */}
             {search.trim().length >= 1 &&
-              deptFolders.every((dept) => {
-                const q = search.trim().toLowerCase();
-                return !dept.name.toLowerCase().includes(q);
-              }) && (
+              deptFolders.every((dept) =>
+                !dept.name
+                  .toLowerCase()
+                  .includes(search.trim().toLowerCase())
+              ) && (
                 <Text className={styles.noResults}>
                   Aucun résultat pour « {search} »
                 </Text>
