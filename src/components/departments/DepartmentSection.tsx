@@ -220,7 +220,7 @@ export function DepartmentSection({
                     onMouseEnter={() => setHoveredId(item.id)}
                     onMouseLeave={() => setHoveredId(null)}
                   >
-                    <FileTypeIcon item={item} size={18} />
+                    <FileTypeIcon item={item} size={20} />
 
                     <Text
                       className={mergeClasses(
