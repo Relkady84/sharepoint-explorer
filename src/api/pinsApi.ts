@@ -3,11 +3,11 @@
  * CRUD operations for the "AppPins" SharePoint list.
  *
  * List columns (create these manually in SharePoint):
- *   Title          – Single line of text  (display label)
- *   FolderDriveId  – Single line of text  (drive ID)
- *   FolderItemId   – Single line of text  (item ID)
- *   AssignedTo     – Multiple lines of text (comma/newline-separated emails,
- *                    or empty / "everyone" / "*" to show to all users)
+ *   Title      – Single line of text  (display label)
+ *   DriveId    – Single line of text  (drive ID)
+ *   ItemId     – Single line of text  (item ID)
+ *   AssignedTo – Multiple lines of text (one email per line or comma-separated,
+ *                or empty / "everyone" / "*" to show to all users)
  */
 
 import { createGraphClient } from "./graphClient";
@@ -62,8 +62,8 @@ export async function fetchAllPins(token: string, siteId: string): Promise<AppPi
     .map((item) => ({
       listItemId: item.id,
       label: item.fields?.Title ?? "",
-      driveId: item.fields?.FolderDriveId ?? "",
-      itemId: item.fields?.FolderItemId ?? "",
+      driveId: item.fields?.DriveId ?? "",
+      itemId: item.fields?.ItemId ?? "",
       assignedTo: item.fields?.AssignedTo ?? "",
     }))
     .filter((p) => p.driveId && p.itemId); // skip malformed / config rows
@@ -84,8 +84,8 @@ export async function createAppPin(
     {
       fields: {
         Title: pin.label,
-        FolderDriveId: pin.driveId,
-        FolderItemId: pin.itemId,
+        DriveId: pin.driveId,
+        ItemId: pin.itemId,
         AssignedTo: pin.assignedTo,
       },
     }
@@ -105,8 +105,8 @@ export async function updateAppPin(
 
   await client.patch(`/sites/${siteId}/lists/${listId}/items/${pin.listItemId}/fields`, {
     Title: pin.label,
-    FolderDriveId: pin.driveId,
-    FolderItemId: pin.itemId,
+    DriveId: pin.driveId,
+    ItemId: pin.itemId,
     AssignedTo: pin.assignedTo,
   });
 }
