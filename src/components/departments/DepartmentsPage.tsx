@@ -7,21 +7,21 @@ import {
   Spinner,
   Button,
   Badge,
+  Tooltip,
 } from "@fluentui/react-components";
 import {
   Search20Regular,
   BuildingRegular,
   DismissRegular,
   FolderArrowRightRegular,
+  Delete20Regular,
+  Edit20Regular,
   PinOffRegular,
 } from "@fluentui/react-icons";
-import {
-  useDeptFolders,
-  getPinnedFolders,
-  removePinnedFolder,
-  type PinnedFolder,
-} from "../../hooks/useDepartments";
+import { useDeptFolders } from "../../hooks/useDepartments";
+import { useAppPins, type AppPin } from "../../hooks/useAppPins";
 import { DepartmentSection } from "./DepartmentSection";
+import { AssignPinDialog } from "../files/AssignPinDialog";
 import { useNavigationStore } from "../../store/navigationStore";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -89,8 +89,30 @@ const useStyles = makeStyles({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  groupMeta: {
+    fontSize: tokens.fontSizeBase100,
+    color: tokens.colorNeutralForeground3,
+    marginTop: "2px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  groupLabelCol: {
+    flex: 1,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  },
   groupCount: { flexShrink: 0 },
-  unpinBtn: { flexShrink: 0 },
+  adminActions: { display: "flex", gap: "2px", flexShrink: 0 },
+
+  noResults: {
+    textAlign: "center",
+    color: tokens.colorNeutralForeground3,
+    padding: "16px 0",
+    fontStyle: "italic",
+    fontSize: tokens.fontSizeBase200,
+  },
 
   // ── Empty / center states ──
   center: {
@@ -112,7 +134,7 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     gap: "12px",
-    maxWidth: "460px",
+    maxWidth: "480px",
     textAlign: "left",
   },
   step: { display: "flex", alignItems: "flex-start", gap: "10px" },
@@ -129,38 +151,56 @@ const useStyles = makeStyles({
     justifyContent: "center",
     flexShrink: 0,
   },
-  noResults: {
-    textAlign: "center",
-    color: tokens.colorNeutralForeground3,
-    padding: "16px 0",
-    fontStyle: "italic",
-    fontSize: tokens.fontSizeBase200,
+  errorBox: {
+    padding: "16px 20px",
+    backgroundColor: tokens.colorPaletteRedBackground1,
+    borderRadius: tokens.borderRadiusLarge,
+    border: `1px solid ${tokens.colorPaletteRedBorderActive}`,
+    maxWidth: "480px",
+    textAlign: "left",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
   },
 });
 
-// ── PinnedGroup — one self-contained group per pinned folder ──────────────────
+// ── PinnedGroup ───────────────────────────────────────────────────────────────
 
 interface GroupProps {
-  pin: PinnedFolder;
+  pin: AppPin;
   search: string;
-  onUnpin: (itemId: string) => void;
+  isAdmin: boolean;
+  onEdit: (pin: AppPin) => void;
+  onDelete: (listItemId: string) => void;
 }
 
-function PinnedGroup({ pin, search, onUnpin }: GroupProps) {
+function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
   const styles = useStyles();
   const { data: deptFolders, isLoading } = useDeptFolders(pin.driveId, pin.itemId);
-
-  // Never filter departments by name — each DepartmentSection uses Graph search
-  // internally and hides itself when it has no results for the query.
   const visible = deptFolders ?? [];
+
+  // Friendly label for who this is assigned to
+  const assignedLabel = (() => {
+    const raw = pin.assignedTo.trim().toLowerCase();
+    if (!raw || raw === "everyone" || raw === "*" || raw === "all") return "Tout le monde";
+    return pin.assignedTo.trim().replace(/[\n]/g, ", ");
+  })();
 
   return (
     <div className={styles.group}>
       {/* Group header */}
       <div className={styles.groupHeader}>
-        <Text className={styles.groupLabel} title={pin.label}>
-          📁 {pin.label}
-        </Text>
+        <div className={styles.groupLabelCol}>
+          <Text className={styles.groupLabel} title={pin.label}>
+            📁 {pin.label}
+          </Text>
+          {isAdmin && (
+            <Text className={styles.groupMeta} title={`Assigné à : ${assignedLabel}`}>
+              👥 {assignedLabel}
+            </Text>
+          )}
+        </div>
+
         {deptFolders !== undefined && (
           <Badge
             className={styles.groupCount}
@@ -171,14 +211,28 @@ function PinnedGroup({ pin, search, onUnpin }: GroupProps) {
             {visible.length} dept{visible.length !== 1 ? "s" : ""}
           </Badge>
         )}
-        <Button
-          className={styles.unpinBtn}
-          appearance="subtle"
-          size="small"
-          icon={<PinOffRegular />}
-          title="Désépingler ce dossier"
-          onClick={() => onUnpin(pin.itemId)}
-        />
+
+        {/* Admin controls */}
+        {isAdmin && (
+          <div className={styles.adminActions}>
+            <Tooltip content="Modifier l'assignation" relationship="label">
+              <Button
+                appearance="subtle"
+                size="small"
+                icon={<Edit20Regular />}
+                onClick={() => onEdit(pin)}
+              />
+            </Tooltip>
+            <Tooltip content="Supprimer cette épingle" relationship="label">
+              <Button
+                appearance="subtle"
+                size="small"
+                icon={<Delete20Regular />}
+                onClick={() => onDelete(pin.listItemId)}
+              />
+            </Tooltip>
+          </div>
+        )}
       </div>
 
       {/* Department sections */}
@@ -207,10 +261,19 @@ export function DepartmentsPage() {
   const styles = useStyles();
   const [search, setSearch] = useState("");
   const { siteId, setActiveView } = useNavigationStore();
-  const [pins, setPins] = useState<PinnedFolder[]>(() => getPinnedFolders());
 
-  const handleUnpin = (itemId: string) => {
-    setPins(removePinnedFolder(itemId));
+  const { myPins, allPins, isLoading, error, isAdmin, remove } = useAppPins();
+
+  // Admin sees all pins; regular user sees only theirs
+  const pinsToShow = isAdmin ? allPins : myPins;
+
+  // Edit-pin dialog state
+  const [editPin, setEditPin] = useState<AppPin | null>(null);
+
+  const handleDelete = (listItemId: string) => {
+    if (confirm("Supprimer cette épingle ?")) {
+      remove.mutate(listItemId);
+    }
   };
 
   // ── No site selected ──
@@ -228,65 +291,136 @@ export function DepartmentsPage() {
     );
   }
 
-  // ── Nothing pinned ──
-  if (pins.length === 0) {
+  // ── Loading ──
+  if (isLoading) {
     return (
       <div className={styles.center}>
-        <FolderArrowRightRegular fontSize={56} className={styles.centerIcon} />
-        <Text size={500} weight="semibold" style={{ color: tokens.colorNeutralForeground2 }}>
-          Aucun dossier épinglé
-        </Text>
-        <div className={styles.instructions}>
-          <Text weight="semibold" size={300}>Comment configurer :</Text>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>1</div>
-            <div>
-              <Text weight="semibold" size={200}>Allez dans Explorer</Text>
-              <br />
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                Cliquez sur "Explorer" dans la barre latérale.
-              </Text>
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>2</div>
-            <div>
-              <Text weight="semibold" size={200}>Naviguez jusqu'au dossier voulu</Text>
-              <br />
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                Ouvrez le dossier qui contient vos sous-dossiers (ex: dossiers des dpts).
-              </Text>
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>3</div>
-            <div>
-              <Text weight="semibold" size={200}>Cliquez 📌 Épingler dans la barre d'outils</Text>
-              <br />
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                Répétez pour autant de dossiers que vous voulez — chacun aura sa propre section.
-              </Text>
-            </div>
-          </div>
-          <Button appearance="primary" icon={<FolderArrowRightRegular />} onClick={() => setActiveView("explorer")}>
-            Aller dans Explorer
-          </Button>
-        </div>
+        <Spinner size="medium" label="Chargement des dossiers épinglés…" />
       </div>
     );
   }
 
-  // ── Pinned folders ──
+  // ── AppPins list not found or other error ──
+  if (error) {
+    const msg = (error as Error).message ?? "";
+    const isListMissing = msg.includes("introuvable") || msg.includes("AppPins");
+
+    return (
+      <div className={styles.center}>
+        <FolderArrowRightRegular fontSize={56} className={styles.centerIcon} />
+        {isListMissing ? (
+          <div className={styles.instructions}>
+            <Text weight="semibold" size={400}>⚙️ Configuration requise</Text>
+            <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>
+              La liste <strong>AppPins</strong> n'existe pas encore sur ce site SharePoint.
+              Créez-la en suivant ces étapes :
+            </Text>
+            <div className={styles.step}>
+              <div className={styles.stepNum}>1</div>
+              <Text size={200}>
+                Allez sur votre site SharePoint → <strong>Contenu du site</strong> →{" "}
+                <strong>Nouveau → Liste</strong> → nommez-la <strong>AppPins</strong>
+              </Text>
+            </div>
+            <div className={styles.step}>
+              <div className={styles.stepNum}>2</div>
+              <Text size={200}>
+                Ajoutez 3 colonnes (Ligne de texte simple) :{" "}
+                <strong>FolderDriveId</strong>, <strong>FolderItemId</strong>,{" "}
+                <strong>AssignedTo</strong> (Plusieurs lignes de texte)
+              </Text>
+            </div>
+            <div className={styles.step}>
+              <div className={styles.stepNum}>3</div>
+              <Text size={200}>
+                Ajoutez votre email dans <strong>VITE_ADMIN_EMAILS</strong> dans{" "}
+                <code>.env</code> puis redéployez
+              </Text>
+            </div>
+            <div className={styles.step}>
+              <div className={styles.stepNum}>4</div>
+              <Text size={200}>
+                Allez dans <strong>Explorer</strong>, naviguez jusqu'au dossier voulu,
+                cliquez 📌 <strong>Épingler pour des utilisateurs…</strong>
+              </Text>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.errorBox}>
+            <Text weight="semibold" style={{ color: tokens.colorPaletteRedForeground1 }}>
+              Erreur de chargement
+            </Text>
+            <Text size={200}>{msg}</Text>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── No pins assigned to this user ──
+  if (pinsToShow.length === 0) {
+    return (
+      <div className={styles.center}>
+        <PinOffRegular fontSize={56} className={styles.centerIcon} />
+        <Text size={500} weight="semibold" style={{ color: tokens.colorNeutralForeground2 }}>
+          {isAdmin ? "Aucune épingle configurée" : "Aucun dossier disponible"}
+        </Text>
+        {isAdmin ? (
+          <div className={styles.instructions}>
+            <Text weight="semibold" size={300}>Comment ajouter des dossiers :</Text>
+            <div className={styles.step}>
+              <div className={styles.stepNum}>1</div>
+              <div>
+                <Text weight="semibold" size={200}>Allez dans Explorer</Text>
+                <br />
+                <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                  Naviguez jusqu'au dossier que vous voulez épingler.
+                </Text>
+              </div>
+            </div>
+            <div className={styles.step}>
+              <div className={styles.stepNum}>2</div>
+              <div>
+                <Text weight="semibold" size={200}>Cliquez 📌 Épingler pour des utilisateurs…</Text>
+                <br />
+                <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                  Saisissez les emails des utilisateurs qui verront ce dossier.
+                </Text>
+              </div>
+            </div>
+            <Button
+              appearance="primary"
+              icon={<FolderArrowRightRegular />}
+              onClick={() => setActiveView("explorer")}
+            >
+              Aller dans Explorer
+            </Button>
+          </div>
+        ) : (
+          <Text style={{ color: tokens.colorNeutralForeground3 }}>
+            L'administrateur ne vous a encore attribué aucun dossier.
+          </Text>
+        )}
+      </div>
+    );
+  }
+
+  // ── Pinned folders view ──
   return (
     <div className={styles.root}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.titleRow}>
           <BuildingRegular fontSize={24} className={styles.titleIcon} />
-          <Text className={styles.title}>Dossiers des Départements</Text>
+          <Text className={styles.title}>Dossiers Épinglés</Text>
           <Badge appearance="outline" color="informative">
-            {pins.length} dossier{pins.length !== 1 ? "s" : ""}
+            {pinsToShow.length} dossier{pinsToShow.length !== 1 ? "s" : ""}
           </Badge>
+          {isAdmin && (
+            <Badge appearance="filled" color="warning" size="small">
+              Admin
+            </Badge>
+          )}
         </div>
         <div className={styles.searchRow}>
           <Input
@@ -312,15 +446,27 @@ export function DepartmentsPage() {
 
       {/* One group per pin */}
       <div className={styles.content}>
-        {pins.map((pin) => (
+        {pinsToShow.map((pin) => (
           <PinnedGroup
-            key={pin.itemId}
+            key={pin.listItemId}
             pin={pin}
             search={search}
-            onUnpin={handleUnpin}
+            isAdmin={isAdmin}
+            onEdit={setEditPin}
+            onDelete={handleDelete}
           />
         ))}
       </div>
+
+      {/* Edit dialog */}
+      {editPin && (
+        <AssignPinDialog
+          mode="edit"
+          open={!!editPin}
+          existingPin={editPin}
+          onClose={() => setEditPin(null)}
+        />
+      )}
     </div>
   );
 }

@@ -11,12 +11,12 @@ import {
   ArrowUpload20Regular,
   ArrowClockwise20Regular,
   Pin20Regular,
-  CheckmarkCircle20Regular,
 } from "@fluentui/react-icons";
 import { useUpload } from "../../hooks/useUpload";
 import { useNavigationStore } from "../../store/navigationStore";
 import { useQueryClient } from "@tanstack/react-query";
-import { addPinnedFolder } from "../../hooks/useDepartments";
+import { useIsAdmin } from "../../hooks/useAppPins";
+import { AssignPinDialog } from "./AssignPinDialog";
 
 const useStyles = makeStyles({
   toolbar: {
@@ -44,14 +44,6 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralStroke2,
     margin: "0 4px",
   },
-  pinConfirm: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorPaletteGreenForeground1,
-    fontWeight: tokens.fontWeightSemibold,
-  },
 });
 
 export function FileToolbar() {
@@ -60,11 +52,11 @@ export function FileToolbar() {
   const { driveId, currentItemId, siteId, breadcrumbs, activeView } = useNavigationStore();
   const uploadMutation = useUpload();
   const queryClient = useQueryClient();
-  const [pinned, setPinned] = useState(false);
+  const isAdmin = useIsAdmin();
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+
+  const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -84,19 +76,14 @@ export function FileToolbar() {
     queryClient.invalidateQueries({ queryKey: ["driveItems"] });
   };
 
-  const handlePin = () => {
-    if (!driveId || !currentItemId) return;
-    // Build a readable label from breadcrumbs (last segment = current folder name)
-    const label = breadcrumbs.length > 0
+  // Pin button: only for admins, and only when inside a subfolder in Explorer
+  const showPinButton =
+    isAdmin && activeView === "explorer" && !!currentItemId && !!driveId;
+
+  const defaultPinLabel =
+    breadcrumbs.length > 0
       ? breadcrumbs.map((b) => b.name).join(" › ")
       : "Dossier épinglé";
-    addPinnedFolder(driveId, currentItemId, label);
-    setPinned(true);
-    setTimeout(() => setPinned(false), 3000);
-  };
-
-  // Only show the Pin button when in Explorer and inside a folder
-  const showPinButton = activeView === "explorer" && !!currentItemId && !!driveId;
 
   return (
     <div className={styles.toolbar}>
@@ -132,32 +119,24 @@ export function FileToolbar() {
         />
       </Tooltip>
 
-      {/* Pin button — only shown when browsing a subfolder in Explorer */}
+      {/* Pin button — admin only, inside a folder in Explorer */}
       {showPinButton && (
         <>
           <div className={styles.separator} />
           <Tooltip
-            content="Épingler ce dossier comme racine des Départements"
+            content="Épingler ce dossier et l'assigner à des utilisateurs"
             relationship="label"
           >
             <Button
               appearance="subtle"
               size="small"
               icon={<Pin20Regular />}
-              onClick={handlePin}
+              onClick={() => setPinDialogOpen(true)}
             >
-              Épingler comme Départements
+              Épingler pour des utilisateurs…
             </Button>
           </Tooltip>
         </>
-      )}
-
-      {/* Pin confirmation */}
-      {pinned && (
-        <span className={styles.pinConfirm}>
-          <CheckmarkCircle20Regular />
-          Dossier épinglé ! Allez dans l'onglet Départements.
-        </span>
       )}
 
       {/* Upload status */}
@@ -178,6 +157,18 @@ export function FileToolbar() {
         <Text className={styles.statusText} style={{ color: tokens.colorPaletteRedForeground1 }}>
           Upload failed — check permissions
         </Text>
+      )}
+
+      {/* Assign-pin dialog (admin only) */}
+      {showPinButton && pinDialogOpen && (
+        <AssignPinDialog
+          mode="create"
+          open={pinDialogOpen}
+          driveId={driveId!}
+          itemId={currentItemId!}
+          defaultLabel={defaultPinLabel}
+          onClose={() => setPinDialogOpen(false)}
+        />
       )}
     </div>
   );

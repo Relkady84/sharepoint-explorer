@@ -23,11 +23,12 @@ export const msalConfig: Configuration = {
   },
 };
 
-/** Scopes requested at login — covers reading files and user profile */
+/** Scopes requested at login — covers reading/writing files, sites, and user profile */
 export const loginRequest = {
   scopes: [
     "User.Read",
     "Sites.Read.All",
+    "Sites.ReadWrite.All",   // needed to write to the AppPins SharePoint list
     "Files.ReadWrite.All",
     "offline_access",
   ],
