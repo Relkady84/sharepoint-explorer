@@ -81,6 +81,9 @@ export function FileListItem({ item }: FileListItemProps) {
         name: item.name,
         driveId: item.parentReference.driveId,
       });
+    } else {
+      // Opens in Office Online for Office files, SharePoint viewer for all others
+      window.open(item.webUrl, "_blank", "noopener,noreferrer");
     }
   };
 
