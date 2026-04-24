@@ -403,6 +403,8 @@ interface Props {
   driveId: string;
   searchQuery?: string;
   defaultOpen?: boolean;
+  /** When true the card header is hidden and content is always visible (no second toggle) */
+  hideHeader?: boolean;
 }
 
 export function DepartmentSection({
@@ -410,6 +412,7 @@ export function DepartmentSection({
   driveId,
   searchQuery = "",
   defaultOpen = true,
+  hideHeader = false,
 }: Props) {
   const styles = useStyles();
   const [open, setOpen] = useState(defaultOpen);
@@ -417,10 +420,13 @@ export function DepartmentSection({
   const q = searchQuery.trim();
   const isSearching = q.length >= 2;
 
+  // hideHeader means always open — no state needed
+  const effectiveOpen = hideHeader ? true : open;
+
   // ── Browse mode: load direct children ──
   const { data: items, isLoading: browseLoading, error: browseError } = useDeptFiles(
-    !isSearching && open ? driveId : null,
-    !isSearching && open ? folder.id : null
+    !isSearching && effectiveOpen ? driveId : null,
+    !isSearching && effectiveOpen ? folder.id : null
   );
 
   // ── Search mode: Graph full-text search within this department subtree ──
@@ -431,7 +437,7 @@ export function DepartmentSection({
   );
 
   // When searching, always open the section to show results
-  const isOpen = isSearching ? true : open;
+  const isOpen = isSearching ? true : effectiveOpen;
 
   // In search mode, hide section if query is long enough and no results came back yet-or-empty
   if (isSearching && !searchLoading && (searchResults ?? []).length === 0) return null;
@@ -444,25 +450,27 @@ export function DepartmentSection({
 
   return (
     <div className={styles.section}>
-      {/* Header */}
-      <div className={styles.header} onClick={() => { if (!isSearching) setOpen((v) => !v); }}>
-        {isOpen ? (
-          <ChevronDown20Regular className={styles.chevronIcon} />
-        ) : (
-          <ChevronRight20Regular className={styles.chevronIcon} />
-        )}
-        {isOpen ? (
-          <FolderOpenRegular className={styles.folderIcon} />
-        ) : (
-          <FolderRegular className={styles.folderIcon} />
-        )}
-        <Text className={styles.headerTitle}>{folder.name}</Text>
-        {!isLoading && (
-          <Badge appearance="filled" color="informative" size="small">
-            {displayItems.length}
-          </Badge>
-        )}
-      </div>
+      {/* Header — omitted when hideHeader is true */}
+      {!hideHeader && (
+        <div className={styles.header} onClick={() => { if (!isSearching) setOpen((v) => !v); }}>
+          {isOpen ? (
+            <ChevronDown20Regular className={styles.chevronIcon} />
+          ) : (
+            <ChevronRight20Regular className={styles.chevronIcon} />
+          )}
+          {isOpen ? (
+            <FolderOpenRegular className={styles.folderIcon} />
+          ) : (
+            <FolderRegular className={styles.folderIcon} />
+          )}
+          <Text className={styles.headerTitle}>{folder.name}</Text>
+          {!isLoading && (
+            <Badge appearance="filled" color="informative" size="small">
+              {displayItems.length}
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Body */}
       {isOpen && (

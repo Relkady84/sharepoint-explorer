@@ -281,12 +281,15 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
         isLoading ? (
           <Spinner size="tiny" label="Chargement…" />
         ) : selfAsFolder ? (
-          // No sub-folders — show the pinned folder's own files directly
+          // No sub-folders — files are directly inside the pinned folder.
+          // hideHeader removes the redundant blue card header (the yellow group
+          // header above is already the only toggle the user needs).
           <DepartmentSection
             folder={selfAsFolder}
             driveId={pin.driveId}
             searchQuery={search}
             defaultOpen={true}
+            hideHeader
           />
         ) : (
           visible.map((dept) => (
