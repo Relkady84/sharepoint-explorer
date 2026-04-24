@@ -128,10 +128,10 @@ const useStyles = makeStyles({
 export function DepartmentsPage() {
   const styles = useStyles();
   const [search, setSearch] = useState("");
-  const [pinVersion, setPinVersion] = useState(0); // bump to re-read localStorage
   const { siteId, siteName, setActiveView } = useNavigationStore();
 
-  const pinned = getPinnedFolder();
+  // Store pinned folder in state so React re-renders when it changes
+  const [pinned, setPinned] = useState(() => getPinnedFolder());
 
   const { data: deptFolders, isLoading } = useDeptFolders(
     pinned?.driveId ?? null,
@@ -143,7 +143,7 @@ export function DepartmentsPage() {
 
   const handleUnpin = () => {
     clearPinnedFolder();
-    setPinVersion((v) => v + 1); // force re-render
+    setPinned(null);
   };
 
   // ── No site selected ──
