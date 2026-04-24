@@ -8,7 +8,9 @@
       "PowerShell(netstat -ano)",
       "PowerShell(taskkill /PID 34660 /F 2>&1)",
       "Bash(npx tsc *)",
-      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\raede\\\\AppData\\\\Local\\\\Temp\\\\make-shortcut.ps1\")"
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\raede\\\\AppData\\\\Local\\\\Temp\\\\make-shortcut.ps1\")",
+      "Bash(npm run *)",
+      "Bash(gh run *)"
     ]
   }
 }
