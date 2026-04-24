@@ -479,7 +479,9 @@ export function DepartmentSection({
               ⚠️ Erreur : {browseErrorMsg}
             </Text>
           ) : displayItems.length === 0 ? (
-            <Text className={styles.empty}>Aucun document dans ce département.</Text>
+            <Text className={styles.empty} style={{ userSelect: "text" }}>
+              Aucun document. (driveId: {driveId?.slice(-6)} | folderId: {folder.id?.slice(-6)})
+            </Text>
           ) : isSearching ? (
             // Search mode: flat list with path hints
             displayItems.map((item) => (
