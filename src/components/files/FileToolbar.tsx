@@ -16,7 +16,7 @@ import {
 import { useUpload } from "../../hooks/useUpload";
 import { useNavigationStore } from "../../store/navigationStore";
 import { useQueryClient } from "@tanstack/react-query";
-import { savePinnedFolder } from "../../hooks/useDepartments";
+import { addPinnedFolder } from "../../hooks/useDepartments";
 
 const useStyles = makeStyles({
   toolbar: {
@@ -90,7 +90,7 @@ export function FileToolbar() {
     const label = breadcrumbs.length > 0
       ? breadcrumbs.map((b) => b.name).join(" › ")
       : "Dossier épinglé";
-    savePinnedFolder(driveId, currentItemId, label);
+    addPinnedFolder(driveId, currentItemId, label);
     setPinned(true);
     setTimeout(() => setPinned(false), 3000);
   };

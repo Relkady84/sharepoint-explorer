@@ -2,36 +2,51 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
 import { listFolderChildren, searchInFolder } from "../api/driveApi";
 
-// ── Pinned folder (stored by item ID, not path) ──────────────────────────────
+// ── Pinned folders (array — each shows as its own section) ───────────────────
 
-const DEPT_PIN_KEY = "dept_pinned_folder";
+const DEPT_PIN_KEY = "dept_pinned_folders";
 
 export interface PinnedFolder {
   driveId: string;
   itemId: string;
-  label: string; // display name shown in header
+  label: string;
 }
 
-export function getPinnedFolder(): PinnedFolder | null {
+export function getPinnedFolders(): PinnedFolder[] {
   try {
     const raw = localStorage.getItem(DEPT_PIN_KEY);
-    return raw ? (JSON.parse(raw) as PinnedFolder) : null;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    // Support old single-pin format
+    if (!Array.isArray(parsed)) return [parsed as PinnedFolder];
+    return parsed as PinnedFolder[];
   } catch {
-    return null;
+    return [];
   }
 }
 
-export function savePinnedFolder(driveId: string, itemId: string, label: string) {
-  localStorage.setItem(DEPT_PIN_KEY, JSON.stringify({ driveId, itemId, label }));
+export function addPinnedFolder(driveId: string, itemId: string, label: string): PinnedFolder[] {
+  const existing = getPinnedFolders();
+  // Don't add duplicates
+  if (existing.some((p) => p.itemId === itemId)) return existing;
+  const updated = [...existing, { driveId, itemId, label }];
+  localStorage.setItem(DEPT_PIN_KEY, JSON.stringify(updated));
+  return updated;
 }
 
-export function clearPinnedFolder() {
+export function removePinnedFolder(itemId: string): PinnedFolder[] {
+  const updated = getPinnedFolders().filter((p) => p.itemId !== itemId);
+  localStorage.setItem(DEPT_PIN_KEY, JSON.stringify(updated));
+  return updated;
+}
+
+export function clearAllPinnedFolders() {
   localStorage.removeItem(DEPT_PIN_KEY);
 }
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
 
-/** List all department sub-folders (sorted alphabetically) */
+/** List sub-folders of a pinned folder (one call per pinned root) */
 export function useDeptFolders(driveId: string | null, folderId: string | null) {
   const { getToken } = useAuth();
   return useQuery({
@@ -66,7 +81,7 @@ export function useDeptFiles(driveId: string | null, folderId: string | null) {
   });
 }
 
-/** Full-text search within the pinned folder tree */
+/** Full-text search within a folder tree */
 export function useDeptSearch(
   driveId: string | null,
   folderId: string | null,
