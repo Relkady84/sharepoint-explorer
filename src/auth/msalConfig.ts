@@ -27,6 +27,7 @@ export const msalConfig: Configuration = {
 export const loginRequest = {
   scopes: [
     "User.Read",
+    "User.ReadBasic.All",    // needed for people search autocomplete
     "Sites.Read.All",
     "Sites.ReadWrite.All",   // needed to write to the AppPins SharePoint list
     "Files.ReadWrite.All",

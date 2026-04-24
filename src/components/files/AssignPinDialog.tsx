@@ -8,14 +8,15 @@ import {
   DialogContent,
   Button,
   Input,
-  Textarea,
   Field,
   Text,
   tokens,
   makeStyles,
   Spinner,
+  Switch,
 } from "@fluentui/react-components";
 import { useAppPins, type AppPin } from "../../hooks/useAppPins";
+import { PeoplePicker } from "./PeoplePicker";
 
 const useStyles = makeStyles({
   content: { display: "flex", flexDirection: "column", gap: "16px" },
@@ -30,14 +31,25 @@ const useStyles = makeStyles({
     padding: "10px 12px",
     backgroundColor: tokens.colorPaletteRedBackground1,
     borderRadius: tokens.borderRadiusMedium,
-    lineHeight: "1.5",
+    lineHeight: "1.6",
   },
-  success: {
-    color: tokens.colorPaletteGreenForeground1,
-    fontSize: tokens.fontSizeBase200,
-    padding: "10px 12px",
-    backgroundColor: tokens.colorPaletteGreenBackground1,
+  everyoneRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "8px 12px",
+    backgroundColor: tokens.colorNeutralBackground2,
     borderRadius: tokens.borderRadiusMedium,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+  everyoneLabel: {
+    flex: 1,
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  everyoneHint: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
   },
 });
 
@@ -49,16 +61,40 @@ interface CreateProps {
   itemId: string;
   defaultLabel: string;
 }
-
 interface EditProps {
   mode: "edit";
   existingPin: AppPin;
 }
+type Props = (CreateProps | EditProps) & { open: boolean; onClose: () => void };
 
-type Props = (CreateProps | EditProps) & {
-  open: boolean;
-  onClose: () => void;
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parseEmails(raw: string): string[] {
+  if (!raw) return [];
+  const lower = raw.trim().toLowerCase();
+  if (lower === "everyone" || lower === "*" || lower === "all") return [];
+  return raw.split(/[,;\n]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+}
+
+function describeError(msg: string): string {
+  if (msg.includes("400") || msg.toLowerCase().includes("bad request")) {
+    return (
+      "Erreur 400 — Le serveur a rejeté la requête. Cause la plus probable : " +
+      "la colonne « AssignedTo » (Plusieurs lignes de texte) n'existe pas encore " +
+      "dans votre liste AppPins sur SharePoint. Ajoutez-la puis réessayez."
+    );
+  }
+  if (msg.includes("403") || msg.toLowerCase().includes("forbidden") || msg.includes("401")) {
+    return (
+      "Accès refusé (403). Vérifiez que vous êtes bien propriétaire du site SharePoint " +
+      "et que la liste AppPins vous autorise à écrire."
+    );
+  }
+  if (msg.includes("introuvable") || msg.includes("not found")) {
+    return msg;
+  }
+  return `Erreur inattendue : ${msg}`;
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -67,19 +103,24 @@ export function AssignPinDialog(props: Props) {
   const styles = useStyles();
   const isEditing = props.mode === "edit";
 
-  const [label, setLabel] = useState(
-    isEditing ? props.existingPin.label : props.defaultLabel
-  );
-  const [assignedTo, setAssignedTo] = useState(
-    isEditing ? props.existingPin.assignedTo : ""
-  );
+  const initialEmails = isEditing ? parseEmails(props.existingPin.assignedTo) : [];
+  const initialLabel = isEditing ? props.existingPin.label : props.defaultLabel;
+  const initialEveryone = isEditing
+    ? parseEmails(props.existingPin.assignedTo).length === 0
+    : true;
+
+  const [label, setLabel] = useState(initialLabel);
+  const [selectedEmails, setSelectedEmails] = useState<string[]>(initialEmails);
+  const [everyone, setEveryone] = useState(initialEveryone);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Reset fields when the dialog opens with fresh data
+  // Reset when dialog opens
   useEffect(() => {
     if (open) {
       setLabel(isEditing ? props.existingPin.label : props.defaultLabel);
-      setAssignedTo(isEditing ? props.existingPin.assignedTo : "");
+      const emails = isEditing ? parseEmails(props.existingPin.assignedTo) : [];
+      setSelectedEmails(emails);
+      setEveryone(emails.length === 0);
       setErrorMsg("");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,41 +135,34 @@ export function AssignPinDialog(props: Props) {
       setErrorMsg("Le nom affiché est obligatoire.");
       return;
     }
+    if (!everyone && selectedEmails.length === 0) {
+      setErrorMsg("Ajoutez au moins un utilisateur, ou activez « Visible par tout le monde ».");
+      return;
+    }
+
+    const assignedTo = everyone ? "" : selectedEmails.join("\n");
 
     try {
       if (isEditing) {
-        await update.mutateAsync({
-          ...props.existingPin,
-          label: label.trim(),
-          assignedTo: assignedTo.trim(),
-        });
+        await update.mutateAsync({ ...props.existingPin, label: label.trim(), assignedTo });
       } else {
         await create.mutateAsync({
           label: label.trim(),
           driveId: props.driveId,
           itemId: props.itemId,
-          assignedTo: assignedTo.trim(),
+          assignedTo,
         });
       }
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("403") || msg.toLowerCase().includes("forbidden") || msg.includes("401")) {
-        setErrorMsg(
-          "Accès refusé (403). Vérifiez que vous êtes bien propriétaire du site SharePoint " +
-          "et que la liste AppPins vous autorise à écrire."
-        );
-      } else if (msg.includes("introuvable") || msg.includes("not found")) {
-        setErrorMsg(msg);
-      } else {
-        setErrorMsg(`Erreur inattendue : ${msg}`);
-      }
+      setErrorMsg(describeError(msg));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={(_, d) => { if (!d.open) onClose(); }}>
-      <DialogSurface style={{ maxWidth: 500 }}>
+      <DialogSurface style={{ maxWidth: 520 }}>
         <DialogTitle>
           {isEditing ? "✏️ Modifier l'épingle" : "📌 Épingler ce dossier"}
         </DialogTitle>
@@ -147,22 +181,35 @@ export function AssignPinDialog(props: Props) {
                 />
               </Field>
 
-              {/* Assigned to */}
-              <Field label="Visible par (emails des utilisateurs)">
-                <Textarea
-                  value={assignedTo}
-                  onChange={(_, d) => setAssignedTo(d.value)}
-                  placeholder={
-                    "prof.dupont@montaigne.edu.lb\nprof.martin@montaigne.edu.lb\nkarim@montaigne.edu.lb"
-                  }
-                  rows={4}
+              {/* Everyone toggle */}
+              <div className={styles.everyoneRow}>
+                <div>
+                  <Text className={styles.everyoneLabel}>Visible par tout le monde</Text>
+                  <br />
+                  <Text className={styles.everyoneHint}>
+                    Tous les utilisateurs connectés verront ce dossier
+                  </Text>
+                </div>
+                <Switch
+                  checked={everyone}
+                  onChange={(_, d) => setEveryone(d.checked)}
                   disabled={isPending}
                 />
-                <Text className={styles.hint}>
-                  Un email par ligne (ou séparés par des virgules).{" "}
-                  <strong>Laissez vide</strong> pour rendre ce dossier visible à tous les utilisateurs connectés.
-                </Text>
-              </Field>
+              </div>
+
+              {/* People picker — only shown when not "everyone" */}
+              {!everyone && (
+                <Field label="Attribuer à des utilisateurs spécifiques">
+                  <PeoplePicker
+                    selected={selectedEmails}
+                    onChange={setSelectedEmails}
+                    disabled={isPending}
+                  />
+                  <Text className={styles.hint}>
+                    Tapez un nom pour rechercher dans votre organisation.
+                  </Text>
+                </Field>
+              )}
 
               {/* Error */}
               {errorMsg && <Text className={styles.error}>{errorMsg}</Text>}
