@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   makeStyles,
   tokens,
@@ -17,6 +17,8 @@ import {
   Delete20Regular,
   Edit20Regular,
   PinOffRegular,
+  ChevronDown20Regular,
+  ChevronRight20Regular,
 } from "@fluentui/react-icons";
 import { useDeptFolders } from "../../hooks/useDepartments";
 import type { DriveItem } from "../../types/graph";
@@ -78,8 +80,14 @@ const useStyles = makeStyles({
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    paddingBottom: "6px",
-    borderBottom: `2px solid ${tokens.colorBrandStroke1}`,
+    padding: "8px 12px",
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground2,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderLeft: `4px solid ${tokens.colorBrandStroke1}`,
+    cursor: "pointer",
+    userSelect: "none",
+    "&:hover": { backgroundColor: tokens.colorNeutralBackground2Hover },
   },
   groupLabel: {
     flex: 1,
@@ -177,6 +185,12 @@ interface GroupProps {
 
 function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
   const styles = useStyles();
+  const [groupOpen, setGroupOpen] = useState(true);
+  const toggleGroup = useCallback((e: React.MouseEvent) => {
+    // Don't toggle when clicking admin action buttons
+    if ((e.target as HTMLElement).closest("button")) return;
+    setGroupOpen((v) => !v);
+  }, []);
   const { data: deptFolders, isLoading } = useDeptFolders(pin.driveId, pin.itemId);
   const visible = deptFolders ?? [];
 
@@ -210,8 +224,13 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
 
   return (
     <div className={styles.group}>
-      {/* Group header */}
-      <div className={styles.groupHeader}>
+      {/* Group header — click to collapse/expand */}
+      <div className={styles.groupHeader} onClick={toggleGroup}>
+        {groupOpen
+          ? <ChevronDown20Regular style={{ color: tokens.colorBrandForeground1, flexShrink: 0 }} />
+          : <ChevronRight20Regular style={{ color: tokens.colorBrandForeground1, flexShrink: 0 }} />
+        }
+
         <div className={styles.groupLabelCol}>
           <Text className={styles.groupLabel} title={pin.label}>
             📁 {pin.label}
@@ -230,7 +249,7 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
             color="informative"
             size="small"
           >
-            {visible.length} dept{visible.length !== 1 ? "s" : ""}
+            {visible.length || (selfAsFolder ? 1 : 0)} élém.
           </Badge>
         )}
 
@@ -257,27 +276,29 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
         )}
       </div>
 
-      {/* Department sections */}
-      {isLoading ? (
-        <Spinner size="tiny" label="Chargement…" />
-      ) : selfAsFolder ? (
-        // No sub-folders — show the pinned folder's own files directly
-        <DepartmentSection
-          folder={selfAsFolder}
-          driveId={pin.driveId}
-          searchQuery={search}
-          defaultOpen={true}
-        />
-      ) : (
-        visible.map((dept) => (
+      {/* Department sections — hidden when collapsed */}
+      {groupOpen && (
+        isLoading ? (
+          <Spinner size="tiny" label="Chargement…" />
+        ) : selfAsFolder ? (
+          // No sub-folders — show the pinned folder's own files directly
           <DepartmentSection
-            key={dept.id}
-            folder={dept}
+            folder={selfAsFolder}
             driveId={pin.driveId}
             searchQuery={search}
-            defaultOpen={search.trim().length > 0 || visible.length <= 6}
+            defaultOpen={true}
           />
-        ))
+        ) : (
+          visible.map((dept) => (
+            <DepartmentSection
+              key={dept.id}
+              folder={dept}
+              driveId={pin.driveId}
+              searchQuery={search}
+              defaultOpen={search.trim().length > 0 || visible.length <= 6}
+            />
+          ))
+        )
       )}
     </div>
   );
@@ -290,7 +311,7 @@ export function DepartmentsPage() {
   const [search, setSearch] = useState("");
   const { siteId, setActiveView } = useNavigationStore();
 
-  const { myPins, allPins, isLoading, error, isAdmin, userEmail, remove } = useAppPins();
+  const { myPins, allPins, isLoading, error, isAdmin, remove } = useAppPins();
 
   // Admin sees all pins; regular user sees only theirs
   const pinsToShow = isAdmin ? allPins : myPins;
