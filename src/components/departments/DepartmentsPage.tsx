@@ -150,14 +150,9 @@ function PinnedGroup({ pin, search, onUnpin }: GroupProps) {
   const styles = useStyles();
   const { data: deptFolders, isLoading } = useDeptFolders(pin.driveId, pin.itemId);
 
-  const visible = search.trim().length >= 1
-    ? (deptFolders ?? []).filter((d) =>
-        d.name.toLowerCase().includes(search.trim().toLowerCase())
-      )
-    : (deptFolders ?? []);
-
-  // Hide entire group when searching and nothing matches
-  if (search.trim().length >= 1 && !isLoading && visible.length === 0) return null;
+  // Never filter departments by name — each DepartmentSection uses Graph search
+  // internally and hides itself when it has no results for the query.
+  const visible = deptFolders ?? [];
 
   return (
     <div className={styles.group}>

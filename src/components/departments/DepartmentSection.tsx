@@ -17,7 +17,7 @@ import {
   ArrowDownload20Regular,
   Open20Regular,
 } from "@fluentui/react-icons";
-import { useDeptFiles } from "../../hooks/useDepartments";
+import { useDeptFiles, useDeptSearch } from "../../hooks/useDepartments";
 import { FileTypeIcon } from "../files/FileTypeIcon";
 import { formatFileSize } from "../../utils/fileSize";
 import { formatDate } from "../../utils/dateFormat";
@@ -32,8 +32,8 @@ const useStyles = makeStyles({
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
     boxShadow: tokens.shadow2,
-    flexShrink: 0, // prevent flex parent from compressing this card
-    overflow: "hidden", // needed for border-radius clipping
+    flexShrink: 0,
+    overflow: "hidden",
   },
 
   // ── Card header ──
@@ -59,7 +59,7 @@ const useStyles = makeStyles({
     whiteSpace: "nowrap",
   },
 
-  // ── File / folder rows (flex-based so depth indent works cleanly) ──
+  // ── File / folder rows ──
   row: {
     display: "flex",
     alignItems: "center",
@@ -128,8 +128,25 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
   },
 
+  // ── Search result path hint ──
+  pathHint: {
+    fontSize: tokens.fontSizeBase100,
+    color: tokens.colorNeutralForeground3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+  },
+  nameWithPath: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    overflow: "hidden",
+    minWidth: 0,
+  },
+
   // ── States ──
-  loadingRow: { padding: "14px 16px" },
+  loadingRow: { padding: "14px 16px", display: "flex", alignItems: "center", gap: "8px" },
   empty: {
     padding: "14px 16px",
     color: tokens.colorNeutralForeground3,
@@ -139,7 +156,58 @@ const useStyles = makeStyles({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function highlightText(text: string, q: string, highlightClass: string) {
+  if (!q) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className={highlightClass}>{text.slice(idx, idx + q.length)}</span>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
+
+/** Extract a readable path from parentReference.path, stripping the drive root prefix */
+function extractPath(item: DriveItem): string {
+  const raw = item.parentReference?.path ?? "";
+  // Graph paths look like: /drives/xxx/root:/folder/subfolder
+  const rootIdx = raw.indexOf("root:");
+  if (rootIdx === -1) return "";
+  return raw.slice(rootIdx + 5); // everything after "root:"
+}
+
+async function downloadItem(
+  item: DriveItem,
+  driveId: string,
+  getToken: () => Promise<string>
+) {
+  try {
+    let url = item["@microsoft.graph.downloadUrl"];
+    if (!url) {
+      const token = await getToken();
+      const full = await getItemWithDownloadUrl(token, driveId, item.id);
+      url = full["@microsoft.graph.downloadUrl"];
+    }
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = item.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (err) {
+    console.error("Download failed:", err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DeptItemRow — recursive row for files and expandable sub-folders
+//   (used only in browse mode, not in search mode)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface RowProps {
@@ -155,61 +223,25 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
   const { getToken } = useAuth();
   const isFolder = !!item.folder;
 
-  // Load folder children only when expanded
   const { data: children, isLoading: childrenLoading } = useDeptFiles(
     expanded && isFolder ? driveId : null,
     expanded && isFolder ? item.id : null
   );
 
-  const indent = 16 + depth * 20; // px indent per depth level
+  const indent = 16 + depth * 20;
 
   const handleRowClick = () => {
     if (isFolder) {
       setExpanded((v) => !v);
     } else {
-      // webUrl opens Office Online for Office files; SharePoint viewer for others
       window.open(item.webUrl, "_blank", "noopener,noreferrer");
     }
   };
 
-  const handleDownload = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      let url = item["@microsoft.graph.downloadUrl"];
-      if (!url) {
-        const token = await getToken();
-        const full = await getItemWithDownloadUrl(token, driveId, item.id);
-        url = full["@microsoft.graph.downloadUrl"];
-      }
-      if (!url) return;
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = item.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error("Download failed:", err);
-    }
-  };
-
   const q = searchQuery.trim().toLowerCase();
-  const highlight = (text: string) => {
-    if (!q) return <>{text}</>;
-    const idx = text.toLowerCase().indexOf(q);
-    if (idx === -1) return <>{text}</>;
-    return (
-      <>
-        {text.slice(0, idx)}
-        <span className={styles.highlight}>{text.slice(idx, idx + q.length)}</span>
-        {text.slice(idx + q.length)}
-      </>
-    );
-  };
 
   return (
     <>
-      {/* Row */}
       <div
         className={styles.row}
         style={{ paddingLeft: `${indent}px` }}
@@ -218,7 +250,6 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
         aria-label={item.name}
         title={isFolder ? "Cliquez pour développer" : "Cliquez pour ouvrir"}
       >
-        {/* Chevron (folders) or spacer (files) */}
         <div className={styles.chevronCell}>
           {isFolder ? (
             expanded ? (
@@ -232,24 +263,17 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
         <FileTypeIcon item={item} size={20} />
 
         <Text
-          className={mergeClasses(
-            styles.nameText,
-            isFolder && styles.folderNameText
-          )}
+          className={mergeClasses(styles.nameText, isFolder && styles.folderNameText)}
           title={item.name}
         >
-          {highlight(item.name)}
+          {highlightText(item.name, q, styles.highlight)}
         </Text>
 
         <Text className={styles.metaSize}>
-          {isFolder
-            ? `${item.folder!.childCount} élém.`
-            : formatFileSize(item.size)}
+          {isFolder ? `${item.folder!.childCount} élém.` : formatFileSize(item.size)}
         </Text>
 
-        <Text className={styles.metaDate}>
-          {formatDate(item.lastModifiedDateTime)}
-        </Text>
+        <Text className={styles.metaDate}>{formatDate(item.lastModifiedDateTime)}</Text>
 
         <div className={mergeClasses(styles.actions, "actions")}>
           {!isFolder && (
@@ -258,28 +282,21 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
                 appearance="subtle"
                 size="small"
                 icon={<ArrowDownload20Regular />}
-                onClick={handleDownload}
+                onClick={(e) => { e.stopPropagation(); downloadItem(item, driveId, getToken); }}
               />
             </Tooltip>
           )}
-          <Tooltip
-            content={isFolder ? "Ouvrir dans SharePoint" : "Ouvrir"}
-            relationship="label"
-          >
+          <Tooltip content={isFolder ? "Ouvrir dans SharePoint" : "Ouvrir"} relationship="label">
             <Button
               appearance="subtle"
               size="small"
               icon={<Open20Regular />}
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(item.webUrl, "_blank", "noopener,noreferrer");
-              }}
+              onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank", "noopener,noreferrer"); }}
             />
           </Tooltip>
         </div>
       </div>
 
-      {/* Recursive children when expanded */}
       {isFolder && expanded && (
         childrenLoading ? (
           <div className={styles.subLoading} style={{ paddingLeft: `${indent + 20}px` }}>
@@ -305,6 +322,79 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SearchResultRow — flat row used when a search query is active
+//   Shows the file path below the name so the user knows where it lives
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SearchRowProps {
+  item: DriveItem;
+  driveId: string;
+  searchQuery: string;
+}
+
+function SearchResultRow({ item, driveId, searchQuery }: SearchRowProps) {
+  const styles = useStyles();
+  const { getToken } = useAuth();
+  const isFolder = !!item.folder;
+  const path = extractPath(item);
+
+  return (
+    <div
+      className={styles.row}
+      onClick={() => window.open(item.webUrl, "_blank", "noopener,noreferrer")}
+      role="row"
+      aria-label={item.name}
+      title="Cliquez pour ouvrir"
+    >
+      <div className={styles.chevronCell} />
+
+      <FileTypeIcon item={item} size={20} />
+
+      <div className={styles.nameWithPath}>
+        <Text
+          className={mergeClasses(styles.nameText, isFolder && styles.folderNameText)}
+          title={item.name}
+        >
+          {highlightText(item.name, searchQuery.trim(), styles.highlight)}
+        </Text>
+        {path && (
+          <Text className={styles.pathHint} title={path}>
+            {path}
+          </Text>
+        )}
+      </div>
+
+      <Text className={styles.metaSize}>
+        {isFolder ? `${item.folder!.childCount} élém.` : formatFileSize(item.size)}
+      </Text>
+
+      <Text className={styles.metaDate}>{formatDate(item.lastModifiedDateTime)}</Text>
+
+      <div className={mergeClasses(styles.actions, "actions")}>
+        {!isFolder && (
+          <Tooltip content="Télécharger" relationship="label">
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<ArrowDownload20Regular />}
+              onClick={(e) => { e.stopPropagation(); downloadItem(item, driveId, getToken); }}
+            />
+          </Tooltip>
+        )}
+        <Tooltip content={isFolder ? "Ouvrir dans SharePoint" : "Ouvrir"} relationship="label">
+          <Button
+            appearance="subtle"
+            size="small"
+            icon={<Open20Regular />}
+            onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank", "noopener,noreferrer"); }}
+          />
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DepartmentSection — top-level collapsible card for one department folder
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -324,59 +414,84 @@ export function DepartmentSection({
   const styles = useStyles();
   const [open, setOpen] = useState(defaultOpen);
 
-  const { data: items, isLoading } = useDeptFiles(
-    open ? driveId : null,
-    open ? folder.id : null
+  const q = searchQuery.trim();
+  const isSearching = q.length >= 2;
+
+  // ── Browse mode: load direct children ──
+  const { data: items, isLoading: browseLoading } = useDeptFiles(
+    !isSearching && open ? driveId : null,
+    !isSearching && open ? folder.id : null
   );
 
-  const q = searchQuery.trim().toLowerCase();
-  const filtered =
-    q.length >= 1
-      ? (items ?? []).filter((item) => item.name.toLowerCase().includes(q))
-      : (items ?? []);
+  // ── Search mode: Graph full-text search within this department subtree ──
+  const { data: searchResults, isLoading: searchLoading } = useDeptSearch(
+    driveId,
+    folder.id,
+    q
+  );
 
-  // Hide whole section when searching and nothing matches
-  if (q.length >= 1 && !isLoading && filtered.length === 0) return null;
+  // When searching, always open the section to show results
+  const isOpen = isSearching ? true : open;
+
+  // In search mode, hide section if query is long enough and no results came back yet-or-empty
+  if (isSearching && !searchLoading && (searchResults ?? []).length === 0) return null;
+
+  const isLoading = isSearching ? searchLoading : browseLoading;
+  const displayItems = isSearching ? (searchResults ?? []) : (items ?? []);
 
   return (
     <div className={styles.section}>
       {/* Header */}
-      <div className={styles.header} onClick={() => setOpen((v) => !v)}>
-        {open ? (
+      <div className={styles.header} onClick={() => { if (!isSearching) setOpen((v) => !v); }}>
+        {isOpen ? (
           <ChevronDown20Regular className={styles.chevronIcon} />
         ) : (
           <ChevronRight20Regular className={styles.chevronIcon} />
         )}
-        {open ? (
+        {isOpen ? (
           <FolderOpenRegular className={styles.folderIcon} />
         ) : (
           <FolderRegular className={styles.folderIcon} />
         )}
         <Text className={styles.headerTitle}>{folder.name}</Text>
-        {items !== undefined && (
+        {!isLoading && (
           <Badge appearance="filled" color="informative" size="small">
-            {filtered.length}
+            {displayItems.length}
           </Badge>
         )}
       </div>
 
       {/* Body */}
-      {open && (
+      {isOpen && (
         <div>
           {isLoading ? (
             <div className={styles.loadingRow}>
-              <Spinner size="tiny" label="Chargement…" />
+              <Spinner size="tiny" />
+              <Text style={{ fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 }}>
+                {isSearching ? "Recherche…" : "Chargement…"}
+              </Text>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : displayItems.length === 0 ? (
             <Text className={styles.empty}>Aucun document dans ce département.</Text>
+          ) : isSearching ? (
+            // Search mode: flat list with path hints
+            displayItems.map((item) => (
+              <SearchResultRow
+                key={item.id}
+                item={item}
+                driveId={driveId}
+                searchQuery={q}
+              />
+            ))
           ) : (
-            filtered.map((item) => (
+            // Browse mode: recursive expandable rows
+            displayItems.map((item) => (
               <DeptItemRow
                 key={item.id}
                 item={item}
                 driveId={driveId}
                 depth={0}
-                searchQuery={searchQuery}
+                searchQuery=""
               />
             ))
           )}
