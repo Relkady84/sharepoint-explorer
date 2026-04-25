@@ -21,6 +21,9 @@ interface NavigationState {
   // Active view
   activeView: AppView;
 
+  // Mobile sidebar drawer (false on desktop — sidebar is always inline there)
+  mobileSidebarOpen: boolean;
+
   // Actions
   setSite: (siteId: string, siteName: string, driveId: string) => void;
   navigateTo: (item: BreadcrumbItem) => void;
@@ -28,6 +31,7 @@ interface NavigationState {
   navigateToRoot: () => void;
   setSearchQuery: (query: string) => void;
   setActiveView: (view: AppView) => void;
+  setMobileSidebarOpen: (open: boolean) => void;
   reset: () => void;
 }
 
@@ -39,6 +43,7 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   breadcrumbs: [],
   searchQuery: "",
   activeView: "explorer",
+  mobileSidebarOpen: false,
 
   setSite: (siteId, siteName, driveId) =>
     set({
@@ -79,6 +84,8 @@ export const useNavigationStore = create<NavigationState>((set) => ({
 
   setActiveView: (view) => set({ activeView: view }),
 
+  setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
+
   reset: () =>
     set({
       siteId: null,
@@ -88,5 +95,6 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       breadcrumbs: [],
       searchQuery: "",
       activeView: "explorer",
+      mobileSidebarOpen: false,
     }),
 }));

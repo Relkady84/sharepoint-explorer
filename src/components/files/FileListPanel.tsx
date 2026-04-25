@@ -29,6 +29,16 @@ const useStyles = makeStyles({
     padding: "6px 16px",
     backgroundColor: tokens.colorNeutralBackground2,
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    "@media (max-width: 600px)": {
+      gridTemplateColumns: "28px 1fr 92px 56px",
+      gap: "6px",
+      padding: "6px 12px",
+    },
+  },
+  sizeHeaderCell: {
+    "@media (max-width: 600px)": {
+      display: "none",
+    },
   },
   headerCell: {
     fontSize: tokens.fontSizeBase200,
@@ -87,6 +97,16 @@ const useStyles = makeStyles({
     gap: "8px",
     padding: "10px 16px",
     alignItems: "center",
+    "@media (max-width: 600px)": {
+      gridTemplateColumns: "28px 1fr 92px 56px",
+      gap: "6px",
+      padding: "10px 12px",
+    },
+  },
+  skeletonSize: {
+    "@media (max-width: 600px)": {
+      display: "none",
+    },
   },
   searchBadge: {
     padding: "4px 16px 8px",
@@ -107,9 +127,11 @@ function LoadingSkeleton() {
           <Skeleton>
             <SkeletonItem style={{ width: `${40 + Math.random() * 40}%`, height: "16px" }} />
           </Skeleton>
-          <Skeleton>
-            <SkeletonItem style={{ width: "80px", height: "16px", marginLeft: "auto" }} />
-          </Skeleton>
+          <div className={styles.skeletonSize}>
+            <Skeleton>
+              <SkeletonItem style={{ width: "80px", height: "16px", marginLeft: "auto" }} />
+            </Skeleton>
+          </div>
           <Skeleton>
             <SkeletonItem style={{ width: "100px", height: "16px", marginLeft: "auto" }} />
           </Skeleton>
@@ -176,7 +198,7 @@ export function FileListPanel() {
       <div className={styles.header}>
         <span />
         <span className={styles.headerCell}>Name</span>
-        <span className={styles.headerRight}>Size</span>
+        <span className={`${styles.headerRight} ${styles.sizeHeaderCell}`}>Size</span>
         <span className={styles.headerRight}>Modified</span>
         <span />
       </div>

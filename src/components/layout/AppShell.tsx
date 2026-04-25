@@ -1,4 +1,4 @@
-import { makeStyles, tokens } from "@fluentui/react-components";
+import { makeStyles, tokens, mergeClasses } from "@fluentui/react-components";
 import { TopBar } from "./TopBar";
 import { SidebarPanel } from "./SidebarPanel";
 import { FileListPanel } from "../files/FileListPanel";
@@ -10,7 +10,11 @@ const useStyles = makeStyles({
   root: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    height: "100vh", // fallback
+    // dvh accounts for mobile browser chrome (address bar) so content isn't cropped
+    "@supports (height: 100dvh)": {
+      height: "100dvh",
+    },
     backgroundColor: tokens.colorNeutralBackground2,
     overflow: "hidden",
   },
@@ -18,6 +22,7 @@ const useStyles = makeStyles({
     display: "flex",
     flex: 1,
     overflow: "hidden",
+    position: "relative", // anchor for the mobile backdrop
   },
   main: {
     flex: 1,
@@ -25,12 +30,35 @@ const useStyles = makeStyles({
     flexDirection: "column",
     overflow: "hidden",
     backgroundColor: tokens.colorNeutralBackground1,
+    minWidth: 0, // allow shrinking below content size on narrow screens
+  },
+  backdrop: {
+    display: "none",
+    "@media (max-width: 768px)": {
+      display: "block",
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      zIndex: 90,
+      opacity: 0,
+      pointerEvents: "none",
+      transition: "opacity 0.2s ease",
+    },
+  },
+  backdropOpen: {
+    "@media (max-width: 768px)": {
+      opacity: 1,
+      pointerEvents: "auto",
+    },
   },
 });
 
 export function AppShell() {
   const styles = useStyles();
-  const { activeView } = useNavigationStore();
+  const { activeView, mobileSidebarOpen, setMobileSidebarOpen } = useNavigationStore();
 
   return (
     <div className={styles.root}>
@@ -46,6 +74,12 @@ export function AppShell() {
             <FileListPanel />
           )}
         </main>
+        {/* Backdrop for the mobile sidebar drawer */}
+        <div
+          className={mergeClasses(styles.backdrop, mobileSidebarOpen && styles.backdropOpen)}
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
       </div>
     </div>
   );

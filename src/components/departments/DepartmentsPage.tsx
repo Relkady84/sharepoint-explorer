@@ -42,6 +42,9 @@ const useStyles = makeStyles({
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
     flexShrink: 0,
+    "@media (max-width: 600px)": {
+      padding: "12px 12px 10px",
+    },
   },
   titleRow: {
     display: "flex",

@@ -52,6 +52,9 @@ const useStyles = makeStyles({
     padding: "16px 24px 12px",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     flexShrink: 0,
+    "@media (max-width: 600px)": {
+      padding: "12px 12px 10px",
+    },
   },
   titleRow: {
     display: "flex",
@@ -72,6 +75,10 @@ const useStyles = makeStyles({
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     flexShrink: 0,
     backgroundColor: tokens.colorNeutralBackground1,
+    overflowX: "auto",
+    "@media (max-width: 600px)": {
+      padding: "0 12px",
+    },
   },
   breadcrumbs: {
     display: "flex",
@@ -79,6 +86,9 @@ const useStyles = makeStyles({
     gap: "4px",
     padding: "10px 24px 4px",
     flexWrap: "wrap",
+    "@media (max-width: 600px)": {
+      padding: "8px 12px 2px",
+    },
   },
   crumb: {
     fontSize: tokens.fontSizeBase200,
@@ -99,6 +109,9 @@ const useStyles = makeStyles({
     flex: 1,
     overflowY: "auto",
     padding: "8px 16px 24px",
+    "@media (max-width: 600px)": {
+      padding: "6px 8px 16px",
+    },
   },
   row: {
     display: "grid",
@@ -110,9 +123,27 @@ const useStyles = makeStyles({
     cursor: "pointer",
     "&:hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
     "&:hover .actions": { opacity: 1 },
+    // Touch devices have no hover — show actions always
+    "@media (hover: none)": {
+      "& .actions": { opacity: 1 },
+    },
+    // Mobile: 4 cols (icon, name, date, actions). Owner & size are hidden via display:none
+    "@media (max-width: 600px)": {
+      gridTemplateColumns: "28px 1fr 92px 56px",
+      gap: "6px",
+      padding: "10px 10px",
+    },
   },
   rowMine: {
     gridTemplateColumns: "32px 1fr 100px 140px 72px",
+    "@media (max-width: 600px)": {
+      gridTemplateColumns: "28px 1fr 92px 56px",
+    },
+  },
+  hideOnMobile: {
+    "@media (max-width: 600px)": {
+      display: "none",
+    },
   },
   nameCell: {
     display: "flex",
@@ -238,11 +269,14 @@ function SharedItemRow({ item }: { item: SharedDriveItem }) {
         </Text>
       </div>
 
-      <Text className={styles.meta} title={`Partagé par ${ownerName}`}>
+      <Text
+        className={mergeClasses(styles.meta, styles.hideOnMobile)}
+        title={`Partagé par ${ownerName}`}
+      >
         👤 {ownerName}
       </Text>
 
-      <Text className={styles.metaRight}>
+      <Text className={mergeClasses(styles.metaRight, styles.hideOnMobile)}>
         {isFolder
           ? `${remote.folder!.childCount} élém.`
           : formatFileSize(remote.size)}
@@ -342,7 +376,7 @@ function MyDriveRow({ item, onOpenFolder }: MineRowProps) {
         </Text>
       </div>
 
-      <Text className={styles.metaRight}>
+      <Text className={mergeClasses(styles.metaRight, styles.hideOnMobile)}>
         {isFolder
           ? `${item.folder!.childCount} élém.`
           : formatFileSize(item.size)}

@@ -31,6 +31,21 @@ const useStyles = makeStyles({
     "&:hover .actions": {
       opacity: 1,
     },
+    // Touch devices have no hover — show actions always
+    "@media (hover: none)": {
+      "& .actions": { opacity: 1 },
+    },
+    // Mobile: drop the size column, narrow the date and actions
+    "@media (max-width: 600px)": {
+      gridTemplateColumns: "28px 1fr 92px 56px",
+      gap: "6px",
+      padding: "8px 12px",
+    },
+  },
+  sizeCell: {
+    "@media (max-width: 600px)": {
+      display: "none",
+    },
   },
   nameCell: {
     display: "flex",
@@ -130,7 +145,7 @@ export function FileListItem({ item }: FileListItemProps) {
         </Text>
       </div>
 
-      <Text className={styles.meta}>
+      <Text className={mergeClasses(styles.meta, styles.sizeCell)}>
         {isFolder
           ? `${item.folder!.childCount} items`
           : formatFileSize(item.size)}

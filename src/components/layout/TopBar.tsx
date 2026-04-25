@@ -11,8 +11,13 @@ import {
   MenuDivider,
   Button,
 } from "@fluentui/react-components";
-import { SignOut20Regular, Person20Regular } from "@fluentui/react-icons";
+import {
+  SignOut20Regular,
+  Person20Regular,
+  LineHorizontal3Regular,
+} from "@fluentui/react-icons";
 import { useAuth } from "../../auth/useAuth";
+import { useNavigationStore } from "../../store/navigationStore";
 import { SearchBar } from "../search/SearchBar";
 
 const useStyles = makeStyles({
@@ -24,6 +29,17 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorBrandBackground,
     gap: "16px",
     flexShrink: 0,
+    "@media (max-width: 600px)": {
+      gap: "8px",
+      padding: "0 8px",
+    },
+  },
+  hamburger: {
+    display: "none",
+    color: tokens.colorNeutralForegroundOnBrand,
+    "@media (max-width: 768px)": {
+      display: "inline-flex",
+    },
   },
   logo: {
     display: "flex",
@@ -40,6 +56,9 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForegroundOnBrand,
     whiteSpace: "nowrap",
+    "@media (max-width: 600px)": {
+      display: "none",
+    },
   },
   spacer: {
     flex: 1,
@@ -74,9 +93,19 @@ function SharePointLogoWhite() {
 export function TopBar() {
   const styles = useStyles();
   const { displayName, email, logout } = useAuth();
+  const { mobileSidebarOpen, setMobileSidebarOpen } = useNavigationStore();
 
   return (
     <div className={styles.topBar}>
+      <Button
+        appearance="subtle"
+        icon={<LineHorizontal3Regular />}
+        className={styles.hamburger}
+        onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        aria-label="Ouvrir le menu"
+        aria-expanded={mobileSidebarOpen}
+        style={{ color: "inherit" }}
+      />
       <div className={styles.logo}>
         <SharePointLogoWhite />
         <Text className={styles.appName}>SharePoint Explorer</Text>

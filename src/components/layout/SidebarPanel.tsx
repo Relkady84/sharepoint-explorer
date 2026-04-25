@@ -1,4 +1,4 @@
-import { makeStyles, tokens, TabList, Tab } from "@fluentui/react-components";
+import { makeStyles, tokens, mergeClasses, TabList, Tab } from "@fluentui/react-components";
 import { FolderRegular, BuildingRegular, Cloud24Filled } from "@fluentui/react-icons";
 import { SiteSelector } from "../navigation/SiteSelector";
 import { FolderTree } from "../navigation/FolderTree";
@@ -15,6 +15,23 @@ const useStyles = makeStyles({
     borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
     overflow: "hidden",
+    // Mobile: become an off-canvas drawer
+    "@media (max-width: 768px)": {
+      position: "fixed",
+      top: "52px", // below TopBar
+      left: 0,
+      bottom: 0,
+      width: "min(280px, 80vw)",
+      zIndex: 100,
+      transform: "translateX(-100%)",
+      transition: "transform 0.2s ease",
+      boxShadow: "0 0 12px rgba(0,0,0,0.15)",
+    },
+  },
+  sidebarOpen: {
+    "@media (max-width: 768px)": {
+      transform: "translateX(0)",
+    },
   },
   tabs: {
     padding: "8px 8px 0",
@@ -34,16 +51,24 @@ const useStyles = makeStyles({
 
 export function SidebarPanel() {
   const styles = useStyles();
-  const { activeView, setActiveView } = useNavigationStore();
+  const { activeView, setActiveView, mobileSidebarOpen, setMobileSidebarOpen } =
+    useNavigationStore();
+
+  const handleTabSelect = (view: AppView) => {
+    setActiveView(view);
+    // On mobile, close the drawer after picking a view so the user sees the content.
+    // No-op on desktop (drawer state unused there).
+    setMobileSidebarOpen(false);
+  };
 
   return (
-    <div className={styles.sidebar}>
+    <div className={mergeClasses(styles.sidebar, mobileSidebarOpen && styles.sidebarOpen)}>
       {/* View switcher */}
       <div className={styles.tabs}>
         <TabList
           size="small"
           selectedValue={activeView}
-          onTabSelect={(_, d) => setActiveView(d.value as AppView)}
+          onTabSelect={(_, d) => handleTabSelect(d.value as AppView)}
         >
           <Tab
             value="explorer"
