@@ -3,6 +3,7 @@ import { TopBar } from "./TopBar";
 import { SidebarPanel } from "./SidebarPanel";
 import { FileListPanel } from "../files/FileListPanel";
 import { DepartmentsPage } from "../departments/DepartmentsPage";
+import { OneDrivePage } from "../onedrive/OneDrivePage";
 import { useNavigationStore } from "../../store/navigationStore";
 
 const useStyles = makeStyles({
@@ -37,7 +38,13 @@ export function AppShell() {
       <div className={styles.body}>
         <SidebarPanel />
         <main className={styles.main}>
-          {activeView === "departments" ? <DepartmentsPage /> : <FileListPanel />}
+          {activeView === "departments" ? (
+            <DepartmentsPage />
+          ) : activeView === "onedrive" ? (
+            <OneDrivePage />
+          ) : (
+            <FileListPanel />
+          )}
         </main>
       </div>
     </div>

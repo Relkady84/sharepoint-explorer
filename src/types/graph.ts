@@ -44,3 +44,24 @@ export interface BreadcrumbItem {
   name: string;
   driveId: string;
 }
+
+/**
+ * Item returned by /me/drive/sharedWithMe.
+ * The interesting payload is on `remoteItem` — the top-level fields are the
+ * user's "shortcut" wrapper. Owner info lives at `remoteItem.shared.owner.user`.
+ */
+export interface SharedDriveItem {
+  id: string;
+  name: string;
+  remoteItem: DriveItem & {
+    shared?: {
+      sharedDateTime?: string;
+      owner?: {
+        user?: {
+          displayName?: string;
+          email?: string;
+        };
+      };
+    };
+  };
+}

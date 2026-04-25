@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { BreadcrumbItem } from "../types/graph";
 
-export type AppView = "explorer" | "departments";
+export type AppView = "explorer" | "departments" | "onedrive";
 
 interface NavigationState {
   // Current site

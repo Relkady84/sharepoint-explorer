@@ -1,7 +1,8 @@
 import { makeStyles, tokens, TabList, Tab } from "@fluentui/react-components";
-import { FolderRegular, BuildingRegular } from "@fluentui/react-icons";
+import { FolderRegular, BuildingRegular, Cloud24Filled } from "@fluentui/react-icons";
 import { SiteSelector } from "../navigation/SiteSelector";
 import { FolderTree } from "../navigation/FolderTree";
+import { QuickLinks } from "./QuickLinks";
 import { useNavigationStore } from "../../store/navigationStore";
 import type { AppView } from "../../store/navigationStore";
 
@@ -13,8 +14,7 @@ const useStyles = makeStyles({
     flexShrink: 0,
     borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
-    overflowY: "auto",
-    overflowX: "hidden",
+    overflow: "hidden",
   },
   tabs: {
     padding: "8px 8px 0",
@@ -23,6 +23,12 @@ const useStyles = makeStyles({
   },
   tab: {
     fontSize: tokens.fontSizeBase200,
+  },
+  scrollArea: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    overflowX: "hidden",
   },
 });
 
@@ -51,16 +57,27 @@ export function SidebarPanel() {
             icon={<BuildingRegular />}
             className={styles.tab}
           >
-            Départements
+            Mes raccourcis
+          </Tab>
+          <Tab
+            value="onedrive"
+            icon={<Cloud24Filled style={{ color: "#0364B8" }} />}
+            className={styles.tab}
+          >
+            OneDrive
           </Tab>
         </TabList>
       </div>
 
-      {/* Site selector always visible */}
-      <SiteSelector />
+      {/* Scrollable middle: site picker + (in explorer) folder tree.
+          Hidden on OneDrive view since shared files are tenant-wide, not per site. */}
+      <div className={styles.scrollArea}>
+        {activeView !== "onedrive" && <SiteSelector />}
+        {activeView === "explorer" && <FolderTree />}
+      </div>
 
-      {/* Folder tree only in explorer mode */}
-      {activeView === "explorer" && <FolderTree />}
+      {/* Quick links — pinned at bottom, always visible */}
+      <QuickLinks />
     </div>
   );
 }
