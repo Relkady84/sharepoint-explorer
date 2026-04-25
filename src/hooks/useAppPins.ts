@@ -14,6 +14,13 @@ import {
 export type { AppPin };
 
 // ── Admin list (set VITE_ADMIN_EMAILS=a@b.com,c@d.com in .env) ───────────────
+//
+// SECURITY: this is a UX hint only — it hides admin UI from non-admins. It is
+// NOT an authorization boundary. The SPA holds a Sites.ReadWrite.All token, so
+// any authenticated tenant user could call createAppPin / updateAppPin /
+// deleteAppPin directly via Graph. Real enforcement must live on the AppPins
+// SharePoint list itself (break inheritance, grant Edit only to the admin
+// group). Do not add sensitive checks behind `isAdmin`.
 
 const ADMIN_EMAILS: string[] = (import.meta.env.VITE_ADMIN_EMAILS ?? "")
   .split(/[,;]/)
