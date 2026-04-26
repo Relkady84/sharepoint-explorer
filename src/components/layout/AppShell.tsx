@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { makeStyles, tokens, mergeClasses } from "@fluentui/react-components";
 import { TopBar } from "./TopBar";
 import { SidebarPanel } from "./SidebarPanel";
@@ -6,6 +7,9 @@ import { DepartmentsPage } from "../departments/DepartmentsPage";
 import { OneDrivePage } from "../onedrive/OneDrivePage";
 import { SettingsPage } from "../settings/SettingsPage";
 import { useNavigationStore } from "../../store/navigationStore";
+import { useSites } from "../../hooks/useSites";
+import { useAuth } from "../../auth/useAuth";
+import { getSiteDrive } from "../../api/sitesApi";
 
 const useStyles = makeStyles({
   root: {
@@ -59,7 +63,27 @@ const useStyles = makeStyles({
 
 export function AppShell() {
   const styles = useStyles();
-  const { activeView, mobileSidebarOpen, setMobileSidebarOpen } = useNavigationStore();
+  const { activeView, mobileSidebarOpen, setMobileSidebarOpen, siteId, setSite } = useNavigationStore();
+  const { data: sites } = useSites();
+  const { getToken } = useAuth();
+
+  // Auto-select the first available SharePoint site when no site is persisted yet.
+  // This ensures non-admin users on a fresh device get settings loaded immediately
+  // instead of seeing all tabs until they manually open the site selector.
+  useEffect(() => {
+    if (siteId || !sites || sites.length === 0) return;
+    const first = sites[0];
+    (async () => {
+      try {
+        const token = await getToken();
+        const drive = await getSiteDrive(token, first.id);
+        setSite(first.id, first.displayName, drive.id);
+      } catch (err) {
+        console.warn("Auto-site selection failed:", err);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteId, sites]);
 
   return (
     <div className={styles.root}>
