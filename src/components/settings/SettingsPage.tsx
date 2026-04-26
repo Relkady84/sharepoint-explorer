@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   makeStyles,
   tokens,
@@ -11,6 +12,7 @@ import {
   MessageBarBody,
   MessageBarTitle,
   Checkbox,
+  Button,
 } from "@fluentui/react-components";
 import { Settings24Regular, CheckmarkCircle20Filled } from "@fluentui/react-icons";
 import { useAppSettings } from "../../hooks/useAppSettings";
@@ -129,8 +131,57 @@ export function SettingsPage() {
   const isAdmin = useIsAdmin();
   const { siteId, siteName } = useNavigationStore();
 
-  const { settings, isLoading, isMissingList, error, update, isUpdating } = useAppSettings();
+  const { settings, isLoading, isMissingList, error, update, updateAllowedSites, isUpdating } = useAppSettings();
   const { data: allSites, isLoading: sitesLoading } = useSites();
+
+  // ── Local pending state for the sites section ─��──────────────────────────
+  // null  = not yet edited; display is driven by server state
+  // array = user has made changes not yet saved to SharePoint
+  const [pendingSites, setPendingSites] = useState<string[] | null>(null);
+  const [isSavingSites, setIsSavingSites] = useState(false);
+
+  const allSiteIds = (allSites ?? []).map((s) => s.id);
+
+  // Effective checked IDs shown in the UI.
+  // pending overrides server; empty pending means "all"
+  const effectiveIds: string[] | null =
+    pendingSites !== null
+      ? pendingSites.length === 0 ? null : pendingSites
+      : settings.allowedSites.length === 0 ? null : settings.allowedSites;
+
+  const isSiteChecked = (id: string) => effectiveIds === null || effectiveIds.includes(id);
+
+  const allChecked = allSiteIds.length > 0 && allSiteIds.every((id) => isSiteChecked(id));
+  const someChecked = !allChecked && allSiteIds.some((id) => isSiteChecked(id));
+
+  const handleSiteToggle = (toggledId: string, checked: boolean) => {
+    // Expand "all" to an explicit list before modifying so we can remove one entry
+    const base =
+      pendingSites !== null ? pendingSites
+      : settings.allowedSites.length === 0 ? allSiteIds
+      : settings.allowedSites;
+    const next = checked
+      ? base.includes(toggledId) ? base : [...base, toggledId]
+      : base.filter((id) => id !== toggledId);
+    // Collapse back to [] (= all) if every site is selected
+    setPendingSites(allSiteIds.every((id) => next.includes(id)) ? [] : next);
+  };
+
+  const handleSelectAll = () => setPendingSites([]); // [] = all visible
+
+  const handleSaveSites = async () => {
+    if (pendingSites === null) return;
+    setIsSavingSites(true);
+    try {
+      await updateAllowedSites(pendingSites);
+      setPendingSites(null);
+    } catch (e) {
+      console.error("Failed to save allowed sites:", e);
+      alert((e as Error).message);
+    } finally {
+      setIsSavingSites(false);
+    }
+  };
 
   const handleToggle = (key: "explorerEnabled" | "oneDriveEnabled", checked: boolean) => {
     update(key, checked ? "true" : "false").catch((e) => {
@@ -138,34 +189,6 @@ export function SettingsPage() {
       alert((e as Error).message);
     });
   };
-
-  // Toggle a single site in/out of allowedSites.
-  const handleSiteToggle = (toggledSiteId: string, checked: boolean) => {
-    const allIds = (allSites ?? []).map((s) => s.id);
-    // KEY FIX: empty allowedSites means "all". Before removing one entry we must
-    // first expand "" → [every site id], otherwise filtering an empty array does
-    // nothing and the checkbox appears to do nothing on click.
-    const current =
-      settings.allowedSites.length === 0 ? allIds : settings.allowedSites;
-    let next: string[];
-    if (checked) {
-      next = current.includes(toggledSiteId) ? current : [...current, toggledSiteId];
-    } else {
-      next = current.filter((id) => id !== toggledSiteId);
-    }
-    // If every available site ends up included, collapse back to "" (= unrestricted,
-    // so newly added sites are automatically visible without another config change).
-    const effectivelyAll = allIds.length > 0 && allIds.every((id) => next.includes(id));
-    const value = effectivelyAll ? "" : next.join(",");
-    update("allowedSites", value).catch((e) => {
-      console.error("Failed to update allowedSites:", e);
-      alert((e as Error).message);
-    });
-  };
-
-  // A site is "checked" when allowedSites is empty (= all) OR it's explicitly listed.
-  const isSiteChecked = (id: string) =>
-    settings.allowedSites.length === 0 || settings.allowedSites.includes(id);
 
   return (
     <div className={styles.root}>
@@ -259,43 +282,53 @@ export function SettingsPage() {
               <Text className={styles.sectionDescription}>{t("settings.sitesDescription")}</Text>
               {sitesLoading ? (
                 <Spinner size="tiny" label={t("common.loading")} />
-              ) : (allSites ?? []).length === 0 ? (
+              ) : allSiteIds.length === 0 ? (
                 <Text className={styles.sectionDescription}>{t("settings.sitesAllVisible")}</Text>
               ) : (
-                <div className={styles.siteListBox}>
-                  {/* Header row — "Select All" indeterminate checkbox */}
-                  <div className={styles.siteListHeader}>
-                    <Checkbox
-                      label={<strong>{t("settings.sitesSelectAll")}</strong>}
-                      checked={
-                        settings.allowedSites.length === 0
-                          ? true
-                          : settings.allowedSites.length === (allSites ?? []).length
-                          ? true
-                          : "mixed"
-                      }
-                      disabled={isUpdating}
-                      onChange={(_, d) => {
-                        // Clicking "Select All" always resets to empty = all visible
-                        if (d.checked) {
-                          update("allowedSites", "").catch(console.error);
-                        }
-                        // Clicking to deselect = uncheck individual sites via the list below;
-                        // "deselect all" is not supported (it would show nothing to users)
-                      }}
-                    />
+                <>
+                  <div className={styles.siteListBox}>
+                    {/* "Select All" header checkbox */}
+                    <div className={styles.siteListHeader}>
+                      <Checkbox
+                        label={<strong>{t("settings.sitesSelectAll")}</strong>}
+                        checked={allChecked ? true : someChecked ? "mixed" : false}
+                        disabled={isSavingSites}
+                        onChange={(_, d) => { if (d.checked) handleSelectAll(); }}
+                      />
+                    </div>
+                    {/* Individual site rows */}
+                    {(allSites ?? []).map((site) => (
+                      <Checkbox
+                        key={site.id}
+                        label={site.displayName}
+                        checked={isSiteChecked(site.id)}
+                        disabled={isSavingSites}
+                        onChange={(_, d) => handleSiteToggle(site.id, !!d.checked)}
+                      />
+                    ))}
                   </div>
-                  {/* Individual site rows */}
-                  {(allSites ?? []).map((site) => (
-                    <Checkbox
-                      key={site.id}
-                      label={site.displayName}
-                      checked={isSiteChecked(site.id)}
-                      disabled={isUpdating}
-                      onChange={(_, d) => handleSiteToggle(site.id, !!d.checked)}
-                    />
-                  ))}
-                </div>
+                  {/* Save / Cancel — only shown when there are unsaved changes */}
+                  {pendingSites !== null && (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <Button
+                        appearance="primary"
+                        size="small"
+                        disabled={isSavingSites}
+                        onClick={handleSaveSites}
+                      >
+                        {isSavingSites ? t("common.saving") : t("common.save")}
+                      </Button>
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        disabled={isSavingSites}
+                        onClick={() => setPendingSites(null)}
+                      >
+                        {t("common.cancel")}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
 
               <MessageBar intent="warning" className={styles.caveat}>

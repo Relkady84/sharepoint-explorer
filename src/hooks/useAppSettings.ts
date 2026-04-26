@@ -5,6 +5,7 @@ import {
   fetchAllSettings,
   settingsToMap,
   upsertSetting,
+  setAllowedSites,
   DEFAULT_SETTINGS,
   type SettingKey,
   type SettingItem,
@@ -56,8 +57,13 @@ interface UseAppSettingsResult {
   isMissingList: boolean;
   /** Other (non-missing-list) load errors. */
   error: Error | null;
-  /** Update one setting. Optimistic via react-query invalidation. */
+  /** Update a scalar setting (explorerEnabled / oneDriveEnabled). */
   update: (key: SettingKey, value: string) => Promise<void>;
+  /**
+   * Replace the full allowed-sites list.
+   * Pass [] to remove all restrictions (every site becomes visible).
+   */
+  updateAllowedSites: (siteIds: string[]) => Promise<void>;
   isUpdating: boolean;
 }
 
@@ -108,6 +114,16 @@ export function useAppSettings(): UseAppSettingsResult {
     },
   });
 
+  const sitesMutation = useMutation({
+    mutationFn: async (newSiteIds: string[]) => {
+      const token = await getToken();
+      await setAllowedSites(token, siteId!, newSiteIds, rawItems);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appSettings", siteId] });
+    },
+  });
+
   return {
     settings,
     rawItems,
@@ -117,6 +133,9 @@ export function useAppSettings(): UseAppSettingsResult {
     update: async (key, value) => {
       await mutation.mutateAsync({ key, value });
     },
-    isUpdating: mutation.isPending,
+    updateAllowedSites: async (ids) => {
+      await sitesMutation.mutateAsync(ids);
+    },
+    isUpdating: mutation.isPending || sitesMutation.isPending,
   };
 }

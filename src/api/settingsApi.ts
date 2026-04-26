@@ -6,9 +6,13 @@
  *   Title  – Single line of text (built-in)        → the setting KEY
  *   Value  – Single line of text (add this column) → the setting VALUE
  *
+ * Allowed-sites storage: each allowed site is stored as a SEPARATE list item
+ * with Title = "allowedSite" and Value = the full site ID.  This avoids the
+ * 255-character limit of a single-line-text field that would be hit when
+ * storing many site IDs concatenated.  An empty set of allowedSite items means
+ * every accessible site is visible (the default).
+ *
  * SECURITY: writes are gated by SharePoint ACL on the list, not by this code.
- * Restrict the AppSettings list to the admin group at the SharePoint level.
- * The `isAdmin` UI gate is a hint only.
  */
 
 import { createGraphClient } from "./graphClient";
@@ -17,18 +21,20 @@ const LIST_NAME = "AppSettings";
 
 // ── Setting keys & defaults ──────────────────────────────────────────────────
 
-export type SettingKey = "explorerEnabled" | "oneDriveEnabled" | "allowedSites";
+/** Keys stored as unique single-value items (Title is unique for these). */
+export type SettingKey = "explorerEnabled" | "oneDriveEnabled";
+
+/** Repeatable key — one list item per allowed site. */
+const ALLOWED_SITE_KEY = "allowedSite";
 
 export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   explorerEnabled: "true",
   oneDriveEnabled: "true",
-  /** Empty string = every accessible site is visible. */
-  allowedSites: "",
 };
 
 export interface SettingItem {
   listItemId: string;
-  key: SettingKey;
+  key: string; // SettingKey | "allowedSite"
   value: string;
 }
 
@@ -117,7 +123,7 @@ export async function fetchAllSettings(
   return res.data.value
     .map((item) => ({
       listItemId: item.id,
-      key: (item.fields?.Title ?? "") as SettingKey,
+      key: item.fields?.Title ?? "",
       value: item.fields?.[valueField] ?? "",
     }))
     .filter((s) => !!s.key);
@@ -125,20 +131,25 @@ export async function fetchAllSettings(
 
 export function settingsToMap(items: SettingItem[]): SettingsMap {
   const byKey: Record<string, string> = {};
-  for (const it of items) byKey[it.key] = it.value;
-  const rawSites = byKey.allowedSites ?? "";
+  for (const it of items) {
+    if (it.key !== ALLOWED_SITE_KEY) byKey[it.key] = it.value;
+  }
+  const allowedSites = items
+    .filter((it) => it.key === ALLOWED_SITE_KEY)
+    .map((it) => it.value)
+    .filter(Boolean);
   return {
     explorerEnabled: toBool(byKey.explorerEnabled ?? SETTING_DEFAULTS.explorerEnabled),
     oneDriveEnabled: toBool(byKey.oneDriveEnabled ?? SETTING_DEFAULTS.oneDriveEnabled),
-    allowedSites: rawSites ? rawSites.split(",").map((s) => s.trim()).filter(Boolean) : [],
+    allowedSites,
   };
 }
 
-// ── Write (create-or-update) ─────────────────────────────────────────────────
+// ── Write (create-or-update for scalar settings) ─────────────────────────────
 
 /**
- * Upsert: if an item with this Title (key) exists, patch its Value;
- * otherwise create a new item.
+ * Upsert a scalar setting (explorerEnabled / oneDriveEnabled).
+ * Creates a new list item when the key doesn't exist yet; patches otherwise.
  */
 export async function upsertSetting(
   token: string,
@@ -160,6 +171,47 @@ export async function upsertSetting(
   } else {
     await client.post(`/sites/${siteId}/lists/${listId}/items`, {
       fields: { Title: key, [valueField]: value },
+    });
+  }
+}
+
+// ── Write (allowed sites — multi-item) ───────────────────────────────────────
+
+/**
+ * Replace the full set of allowed-site entries atomically.
+ *
+ * Each allowed site is stored as a separate list item with
+ *   Title = "allowedSite"
+ *   Value = <full Graph site ID>
+ *
+ * This avoids the 255-character field limit that would be hit when
+ * storing many site IDs in a single comma-separated value.
+ *
+ * @param newSiteIds  IDs to allow.  Pass [] to allow every site (remove all
+ *                    restrictions — no allowedSite items in the list).
+ */
+export async function setAllowedSites(
+  token: string,
+  siteId: string,
+  newSiteIds: string[],
+  existing: SettingItem[]
+): Promise<void> {
+  const listId = await getListId(token, siteId);
+  const valueField = await getValueFieldName(token, siteId, listId);
+  const client = createGraphClient(token);
+
+  // 1. Delete all existing allowedSite items
+  const oldItems = existing.filter((it) => it.key === ALLOWED_SITE_KEY);
+  for (const item of oldItems) {
+    await client.delete(
+      `/sites/${siteId}/lists/${listId}/items/${item.listItemId}`
+    );
+  }
+
+  // 2. Create one item per allowed site (skip when "all visible")
+  for (const allowedId of newSiteIds) {
+    await client.post(`/sites/${siteId}/lists/${listId}/items`, {
+      fields: { Title: ALLOWED_SITE_KEY, [valueField]: allowedId },
     });
   }
 }
