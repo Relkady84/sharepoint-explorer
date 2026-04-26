@@ -140,18 +140,22 @@ export function SettingsPage() {
   };
 
   // Toggle a single site in/out of allowedSites.
-  // If the result would include every available site, save as "" (= all visible).
-  const handleSiteToggle = (siteId: string, checked: boolean) => {
-    const current = settings.allowedSites;
+  const handleSiteToggle = (toggledSiteId: string, checked: boolean) => {
+    const allIds = (allSites ?? []).map((s) => s.id);
+    // KEY FIX: empty allowedSites means "all". Before removing one entry we must
+    // first expand "" → [every site id], otherwise filtering an empty array does
+    // nothing and the checkbox appears to do nothing on click.
+    const current =
+      settings.allowedSites.length === 0 ? allIds : settings.allowedSites;
     let next: string[];
     if (checked) {
-      next = current.includes(siteId) ? current : [...current, siteId];
+      next = current.includes(toggledSiteId) ? current : [...current, toggledSiteId];
     } else {
-      next = current.filter((id) => id !== siteId);
+      next = current.filter((id) => id !== toggledSiteId);
     }
-    // If every available site is explicitly allowed, save as empty (= unrestricted)
-    const allIds = (allSites ?? []).map((s) => s.id);
-    const effectivelyAll = allIds.every((id) => next.includes(id));
+    // If every available site ends up included, collapse back to "" (= unrestricted,
+    // so newly added sites are automatically visible without another config change).
+    const effectivelyAll = allIds.length > 0 && allIds.every((id) => next.includes(id));
     const value = effectivelyAll ? "" : next.join(",");
     update("allowedSites", value).catch((e) => {
       console.error("Failed to update allowedSites:", e);
@@ -258,7 +262,30 @@ export function SettingsPage() {
               ) : (allSites ?? []).length === 0 ? (
                 <Text className={styles.sectionDescription}>{t("settings.sitesAllVisible")}</Text>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div className={styles.siteListBox}>
+                  {/* Header row — "Select All" indeterminate checkbox */}
+                  <div className={styles.siteListHeader}>
+                    <Checkbox
+                      label={<strong>{t("settings.sitesSelectAll")}</strong>}
+                      checked={
+                        settings.allowedSites.length === 0
+                          ? true
+                          : settings.allowedSites.length === (allSites ?? []).length
+                          ? true
+                          : "mixed"
+                      }
+                      disabled={isUpdating}
+                      onChange={(_, d) => {
+                        // Clicking "Select All" always resets to empty = all visible
+                        if (d.checked) {
+                          update("allowedSites", "").catch(console.error);
+                        }
+                        // Clicking to deselect = uncheck individual sites via the list below;
+                        // "deselect all" is not supported (it would show nothing to users)
+                      }}
+                    />
+                  </div>
+                  {/* Individual site rows */}
                   {(allSites ?? []).map((site) => (
                     <Checkbox
                       key={site.id}

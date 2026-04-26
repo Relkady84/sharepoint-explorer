@@ -224,6 +224,7 @@ const en: Bundle = {
     sitesDescription:
       "Choose which SharePoint sites appear in the site picker for non-admin users. Check all to show every accessible site.",
     sitesAllVisible: "All accessible sites are visible",
+    sitesSelectAll: "Select all",
   },
 };
 
