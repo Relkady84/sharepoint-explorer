@@ -15,9 +15,11 @@ import {
   SignOut20Regular,
   Person20Regular,
   LineHorizontal3Regular,
+  Settings20Regular,
 } from "@fluentui/react-icons";
 import { useAuth } from "../../auth/useAuth";
 import { useNavigationStore } from "../../store/navigationStore";
+import { useTranslation } from "../../i18n/useTranslation";
 import { SearchBar } from "../search/SearchBar";
 
 const useStyles = makeStyles({
@@ -35,11 +37,8 @@ const useStyles = makeStyles({
     },
   },
   hamburger: {
-    display: "none",
     color: tokens.colorNeutralForegroundOnBrand,
-    "@media (max-width: 768px)": {
-      display: "inline-flex",
-    },
+    flexShrink: 0,
   },
   logo: {
     display: "flex",
@@ -93,7 +92,20 @@ function SharePointLogoWhite() {
 export function TopBar() {
   const styles = useStyles();
   const { displayName, email, logout } = useAuth();
-  const { mobileSidebarOpen, setMobileSidebarOpen } = useNavigationStore();
+  const {
+    mobileSidebarOpen,
+    desktopSidebarOpen,
+    toggleSidebar,
+    setActiveView,
+  } = useNavigationStore();
+  const { t } = useTranslation();
+
+  // The hamburger toggles whichever sidebar state matches the viewport.
+  // For aria-expanded we report whichever is relevant; mobile takes precedence
+  // because it's the only state that does anything visible at that size.
+  const isExpanded = typeof window !== "undefined" && window.innerWidth <= 768
+    ? mobileSidebarOpen
+    : desktopSidebarOpen;
 
   return (
     <div className={styles.topBar}>
@@ -101,14 +113,14 @@ export function TopBar() {
         appearance="subtle"
         icon={<LineHorizontal3Regular />}
         className={styles.hamburger}
-        onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        aria-label="Ouvrir le menu"
-        aria-expanded={mobileSidebarOpen}
+        onClick={toggleSidebar}
+        aria-label={t("nav.openMenu")}
+        aria-expanded={isExpanded}
         style={{ color: "inherit" }}
       />
       <div className={styles.logo}>
         <SharePointLogoWhite />
-        <Text className={styles.appName}>SharePoint Explorer</Text>
+        <Text className={styles.appName}>{t("topbar.appName")}</Text>
       </div>
 
       <div className={styles.spacer} />
@@ -142,8 +154,14 @@ export function TopBar() {
                 </div>
               </MenuItem>
               <MenuDivider />
+              <MenuItem
+                icon={<Settings20Regular />}
+                onClick={() => setActiveView("settings")}
+              >
+                {t("nav.settings")}
+              </MenuItem>
               <MenuItem icon={<SignOut20Regular />} onClick={logout}>
-                Sign out
+                {t("nav.signOut")}
               </MenuItem>
             </MenuList>
           </MenuPopover>

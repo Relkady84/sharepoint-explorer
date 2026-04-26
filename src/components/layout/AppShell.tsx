@@ -4,6 +4,7 @@ import { SidebarPanel } from "./SidebarPanel";
 import { FileListPanel } from "../files/FileListPanel";
 import { DepartmentsPage } from "../departments/DepartmentsPage";
 import { OneDrivePage } from "../onedrive/OneDrivePage";
+import { SettingsPage } from "../settings/SettingsPage";
 import { useNavigationStore } from "../../store/navigationStore";
 
 const useStyles = makeStyles({
@@ -70,6 +71,8 @@ export function AppShell() {
             <DepartmentsPage />
           ) : activeView === "onedrive" ? (
             <OneDrivePage />
+          ) : activeView === "settings" ? (
+            <SettingsPage />
           ) : (
             <FileListPanel />
           )}

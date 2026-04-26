@@ -26,6 +26,7 @@ import { useAppPins, type AppPin } from "../../hooks/useAppPins";
 import { DepartmentSection } from "./DepartmentSection";
 import { AssignPinDialog } from "../files/AssignPinDialog";
 import { useNavigationStore } from "../../store/navigationStore";
+import { useTranslation } from "../../i18n/useTranslation";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -219,9 +220,10 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
     : null;
 
   // Friendly label for who this is assigned to
+  const { t } = useTranslation();
   const assignedLabel = (() => {
     const raw = pin.assignedTo.trim().toLowerCase();
-    if (!raw || raw === "everyone" || raw === "*" || raw === "all") return "Tout le monde";
+    if (!raw || raw === "everyone" || raw === "*" || raw === "all") return t("shortcuts.everyone");
     return pin.assignedTo.trim().replace(/[\n]/g, ", ");
   })();
 
@@ -314,6 +316,7 @@ function PinnedGroup({ pin, search, isAdmin, onEdit, onDelete }: GroupProps) {
 
 export function DepartmentsPage() {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const { siteId, setActiveView } = useNavigationStore();
 
@@ -472,7 +475,7 @@ export function DepartmentsPage() {
       <div className={styles.header}>
         <div className={styles.titleRow}>
           <BuildingRegular fontSize={24} className={styles.titleIcon} />
-          <Text className={styles.title}>Dossiers Épinglés</Text>
+          <Text className={styles.title}>{t("shortcuts.title")}</Text>
           <Badge appearance="outline" color="informative">
             {pinsToShow.length} dossier{pinsToShow.length !== 1 ? "s" : ""}
           </Badge>
@@ -497,7 +500,7 @@ export function DepartmentsPage() {
                 />
               ) : undefined
             }
-            placeholder="Rechercher dans tous les dossiers épinglés…"
+            placeholder={t("shortcuts.searchPlaceholder")}
             value={search}
             onChange={(_, d) => setSearch(d.value)}
           />

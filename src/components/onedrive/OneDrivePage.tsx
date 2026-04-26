@@ -29,6 +29,7 @@ import { formatDate } from "../../utils/dateFormat";
 import { useSharedWithMe, useMyDriveChildren } from "../../hooks/useSharedWithMe";
 import { useAuth } from "../../auth/useAuth";
 import { getItemWithDownloadUrl } from "../../api/driveApi";
+import { useTranslation } from "../../i18n/useTranslation";
 import type { DriveItem, SharedDriveItem } from "../../types/graph";
 
 const ONEDRIVE_BLUE = "#0364B8";
@@ -208,6 +209,7 @@ const useStyles = makeStyles({
 
 function SharedItemRow({ item }: { item: SharedDriveItem }) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const { getToken } = useAuth();
   const remote = item.remoteItem;
   const isFolder = !!remote.folder;
@@ -271,14 +273,14 @@ function SharedItemRow({ item }: { item: SharedDriveItem }) {
 
       <Text
         className={mergeClasses(styles.meta, styles.hideOnMobile)}
-        title={`Partagé par ${ownerName}`}
+        title={`${t("onedrive.sharedBy")} ${ownerName}`}
       >
         👤 {ownerName}
       </Text>
 
       <Text className={mergeClasses(styles.metaRight, styles.hideOnMobile)}>
         {isFolder
-          ? `${remote.folder!.childCount} élém.`
+          ? `${remote.folder!.childCount} ${t("common.items")}`
           : formatFileSize(remote.size)}
       </Text>
 
@@ -288,7 +290,7 @@ function SharedItemRow({ item }: { item: SharedDriveItem }) {
 
       <div className={mergeClasses(styles.actions, "actions")}>
         {!isFolder && (
-          <Tooltip content="Télécharger" relationship="label">
+          <Tooltip content={t("common.download")} relationship="label">
             <Button
               appearance="subtle"
               size="small"
@@ -297,7 +299,7 @@ function SharedItemRow({ item }: { item: SharedDriveItem }) {
             />
           </Tooltip>
         )}
-        <Tooltip content="Ouvrir dans OneDrive" relationship="label">
+        <Tooltip content={t("onedrive.openInOneDrive")} relationship="label">
           <Button
             appearance="subtle"
             size="small"
@@ -322,6 +324,7 @@ interface MineRowProps {
 
 function MyDriveRow({ item, onOpenFolder }: MineRowProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const { getToken } = useAuth();
   const isFolder = !!item.folder;
 
@@ -378,7 +381,7 @@ function MyDriveRow({ item, onOpenFolder }: MineRowProps) {
 
       <Text className={mergeClasses(styles.metaRight, styles.hideOnMobile)}>
         {isFolder
-          ? `${item.folder!.childCount} élém.`
+          ? `${item.folder!.childCount} ${t("common.items")}`
           : formatFileSize(item.size)}
       </Text>
 
@@ -388,7 +391,7 @@ function MyDriveRow({ item, onOpenFolder }: MineRowProps) {
 
       <div className={mergeClasses(styles.actions, "actions")}>
         {!isFolder && (
-          <Tooltip content="Télécharger" relationship="label">
+          <Tooltip content={t("common.download")} relationship="label">
             <Button
               appearance="subtle"
               size="small"
@@ -397,7 +400,7 @@ function MyDriveRow({ item, onOpenFolder }: MineRowProps) {
             />
           </Tooltip>
         )}
-        <Tooltip content="Ouvrir dans OneDrive" relationship="label">
+        <Tooltip content={t("onedrive.openInOneDrive")} relationship="label">
           <Button
             appearance="subtle"
             size="small"
@@ -419,11 +422,14 @@ function MyDriveRow({ item, onOpenFolder }: MineRowProps) {
 
 export function OneDrivePage() {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [view, setView] = useState<SubView>("mine");
   const [search, setSearch] = useState("");
 
   // Folder navigation stack for "Mon OneDrive". First entry is always root.
-  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: null, name: "Mon OneDrive" }]);
+  // Note: stored name is replaced by t("onedrive.myDrive") at render-time so
+  // changing language updates the breadcrumb root immediately.
+  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: null, name: "" }]);
   const currentFolderId = crumbs[crumbs.length - 1].id;
 
   const shared = useSharedWithMe();
@@ -444,7 +450,7 @@ export function OneDrivePage() {
     setSearch("");
     if (next === "mine") {
       // Reset to root when re-entering Mon OneDrive
-      setCrumbs([{ id: null, name: "Mon OneDrive" }]);
+      setCrumbs([{ id: null, name: "" }]);
     }
   };
 
@@ -479,10 +485,10 @@ export function OneDrivePage() {
       <div className={styles.header}>
         <div className={styles.titleRow}>
           <Cloud24Filled className={styles.brandIcon} />
-          <Text className={styles.title}>OneDrive</Text>
+          <Text className={styles.title}>{t("onedrive.title")}</Text>
           {!isLoading && !error && (
             <Badge appearance="outline" color="informative">
-              {totalCount} élément{totalCount !== 1 ? "s" : ""}
+              {totalCount} {t("common.items")}
             </Badge>
           )}
         </div>
@@ -496,14 +502,14 @@ export function OneDrivePage() {
                 size="small"
                 icon={<DismissRegular />}
                 onClick={() => setSearch("")}
-                aria-label="Effacer"
+                aria-label={t("common.close")}
               />
             ) : undefined
           }
           placeholder={
             view === "mine"
-              ? "Rechercher dans ce dossier…"
-              : "Rechercher par nom ou auteur…"
+              ? t("onedrive.searchHere")
+              : t("onedrive.searchByNameOrAuthor")
           }
           value={search}
           onChange={(_, d) => setSearch(d.value)}
@@ -518,10 +524,10 @@ export function OneDrivePage() {
           size="small"
         >
           <Tab value="mine" icon={<PersonRegular />}>
-            Mon OneDrive
+            {t("onedrive.myDrive")}
           </Tab>
           <Tab value="shared" icon={<PeopleRegular />}>
-            Partagé avec moi
+            {t("onedrive.sharedWithMe")}
           </Tab>
         </TabList>
       </div>
@@ -531,12 +537,14 @@ export function OneDrivePage() {
         <div className={styles.breadcrumbs}>
           {crumbs.map((c, idx) => {
             const isLast = idx === crumbs.length - 1;
+            // Root crumb's display name comes from the active translation
+            const displayName = idx === 0 ? t("onedrive.myDrive") : c.name;
             return (
               <span key={`${c.id ?? "root"}-${idx}`} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                 {isLast ? (
                   <Text className={styles.crumbCurrent}>
                     {idx === 0 ? <HomeRegular style={{ verticalAlign: "middle", marginRight: 4 }} /> : null}
-                    {c.name}
+                    {displayName}
                   </Text>
                 ) : (
                   <Text
@@ -545,7 +553,7 @@ export function OneDrivePage() {
                     role="button"
                   >
                     {idx === 0 ? <HomeRegular style={{ verticalAlign: "middle", marginRight: 4 }} /> : null}
-                    {c.name}
+                    {displayName}
                   </Text>
                 )}
                 {!isLast && <ChevronRight16Regular className={styles.crumbSep} />}
@@ -562,8 +570,8 @@ export function OneDrivePage() {
             size="medium"
             label={
               view === "mine"
-                ? "Chargement de votre OneDrive…"
-                : "Chargement des fichiers partagés…"
+                ? t("onedrive.loadingMine")
+                : t("onedrive.loadingShared")
             }
           />
         </div>
@@ -572,9 +580,8 @@ export function OneDrivePage() {
           <Cloud24Filled fontSize={56} className={styles.centerIcon} />
           <div className={styles.errorBox}>
             <Text weight="semibold" style={{ color: tokens.colorPaletteRedForeground1 }}>
-              Erreur de chargement
+              {(error as Error).message}
             </Text>
-            <Text size={200}>{(error as Error).message}</Text>
           </div>
         </div>
       ) : view === "mine" ? (
@@ -582,7 +589,7 @@ export function OneDrivePage() {
           <div className={styles.center}>
             <Cloud24Filled fontSize={56} className={styles.centerIcon} />
             <Text size={500} weight="semibold" style={{ color: tokens.colorNeutralForeground2 }}>
-              {search ? `Aucun résultat pour « ${search} »` : "Ce dossier est vide"}
+              {search ? `« ${search} » — ${t("common.search")}` : t("onedrive.emptyMine")}
             </Text>
           </div>
         ) : (
@@ -596,13 +603,11 @@ export function OneDrivePage() {
         <div className={styles.center}>
           <Cloud24Filled fontSize={56} className={styles.centerIcon} />
           <Text size={500} weight="semibold" style={{ color: tokens.colorNeutralForeground2 }}>
-            {search ? `Aucun résultat pour « ${search} »` : "Aucun fichier partagé avec vous"}
+            {search ? `« ${search} » — ${t("common.search")}` : t("onedrive.emptyShared")}
           </Text>
           {!search && (
             <Text size={200} className={styles.emptyHint}>
-              Cette section liste uniquement les fichiers que d'autres personnes
-              ont partagés avec vous. Les dossiers que <strong>vous</strong> avez
-              partagés se trouvent dans <strong>Mon OneDrive</strong>.
+              {t("onedrive.emptySharedHint")}
             </Text>
           )}
         </div>

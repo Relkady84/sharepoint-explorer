@@ -4,9 +4,11 @@ import {
   MailRegular,
   NotebookRegular,
 } from "@fluentui/react-icons";
+import { useTranslation } from "../../i18n/useTranslation";
 
 interface Link {
-  label: string;
+  /** i18n key under "quicklinks.*" */
+  labelKey: string;
   href: string;
   icon: JSX.Element;
   /** When set, open in a sized popup window instead of a new tab. */
@@ -15,17 +17,17 @@ interface Link {
 
 const LINKS: Link[] = [
   {
-    label: "Site du lycée",
+    labelKey: "quicklinks.site",
     href: "https://www.lycee-montaigne.edu.lb",
     icon: <GlobeRegular />,
   },
   {
-    label: "Outlook",
+    labelKey: "quicklinks.outlook",
     href: "https://outlook.office.com/mail/",
     icon: <MailRegular />,
   },
   {
-    label: "Mes notes",
+    labelKey: "quicklinks.notes",
     href: "https://www.onenote.com/notebooks",
     icon: <NotebookRegular />,
     popup: { width: 1100, height: 750 },
@@ -77,8 +79,9 @@ const useStyles = makeStyles({
 
 export function QuickLinks() {
   const styles = useStyles();
+  const { t } = useTranslation();
   return (
-    <nav className={styles.root} aria-label="Liens rapides">
+    <nav className={styles.root} aria-label={t("quicklinks.sectionLabel")}>
       {LINKS.map((l) => (
         <Button
           key={l.href}
@@ -94,7 +97,7 @@ export function QuickLinks() {
             }
           }}
         >
-          {l.label}
+          {t(l.labelKey)}
         </Button>
       ))}
     </nav>
