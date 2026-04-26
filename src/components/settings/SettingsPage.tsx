@@ -10,6 +10,7 @@ import {
   MessageBar,
   MessageBarBody,
   MessageBarTitle,
+  Checkbox,
 } from "@fluentui/react-components";
 import { Settings24Regular, CheckmarkCircle20Filled } from "@fluentui/react-icons";
 import { useAppSettings } from "../../hooks/useAppSettings";
@@ -18,6 +19,7 @@ import { useTranslation } from "../../i18n/useTranslation";
 import { LANGS, type Lang } from "../../i18n/strings";
 import { useNavigationStore } from "../../store/navigationStore";
 import { SiteSelector } from "../navigation/SiteSelector";
+import { useSites } from "../../hooks/useSites";
 
 const useStyles = makeStyles({
   root: {
@@ -110,6 +112,7 @@ export function SettingsPage() {
   const { siteId, siteName } = useNavigationStore();
 
   const { settings, isLoading, isMissingList, error, update, isUpdating } = useAppSettings();
+  const { data: allSites, isLoading: sitesLoading } = useSites();
 
   const handleToggle = (key: "explorerEnabled" | "oneDriveEnabled", checked: boolean) => {
     update(key, checked ? "true" : "false").catch((e) => {
@@ -117,6 +120,30 @@ export function SettingsPage() {
       alert((e as Error).message);
     });
   };
+
+  // Toggle a single site in/out of allowedSites.
+  // If the result would include every available site, save as "" (= all visible).
+  const handleSiteToggle = (siteId: string, checked: boolean) => {
+    const current = settings.allowedSites;
+    let next: string[];
+    if (checked) {
+      next = current.includes(siteId) ? current : [...current, siteId];
+    } else {
+      next = current.filter((id) => id !== siteId);
+    }
+    // If every available site is explicitly allowed, save as empty (= unrestricted)
+    const allIds = (allSites ?? []).map((s) => s.id);
+    const effectivelyAll = allIds.every((id) => next.includes(id));
+    const value = effectivelyAll ? "" : next.join(",");
+    update("allowedSites", value).catch((e) => {
+      console.error("Failed to update allowedSites:", e);
+      alert((e as Error).message);
+    });
+  };
+
+  // A site is "checked" when allowedSites is empty (= all) OR it's explicitly listed.
+  const isSiteChecked = (id: string) =>
+    settings.allowedSites.length === 0 || settings.allowedSites.includes(id);
 
   return (
     <div className={styles.root}>
@@ -203,6 +230,28 @@ export function SettingsPage() {
                   onChange={(_, d) => handleToggle("oneDriveEnabled", d.checked)}
                 />
               </div>
+
+              {/* Visible sites */}
+              <Divider style={{ margin: "8px 0 4px" }} />
+              <Text className={styles.sectionTitle}>{t("settings.sitesSection")}</Text>
+              <Text className={styles.sectionDescription}>{t("settings.sitesDescription")}</Text>
+              {sitesLoading ? (
+                <Spinner size="tiny" label={t("common.loading")} />
+              ) : (allSites ?? []).length === 0 ? (
+                <Text className={styles.sectionDescription}>{t("settings.sitesAllVisible")}</Text>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  {(allSites ?? []).map((site) => (
+                    <Checkbox
+                      key={site.id}
+                      label={site.displayName}
+                      checked={isSiteChecked(site.id)}
+                      disabled={isUpdating}
+                      onChange={(_, d) => handleSiteToggle(site.id, !!d.checked)}
+                    />
+                  ))}
+                </div>
+              )}
 
               <MessageBar intent="warning" className={styles.caveat}>
                 <MessageBarBody>{t("settings.securityCaveat")}</MessageBarBody>

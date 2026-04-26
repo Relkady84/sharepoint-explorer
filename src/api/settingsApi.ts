@@ -17,11 +17,13 @@ const LIST_NAME = "AppSettings";
 
 // ── Setting keys & defaults ──────────────────────────────────────────────────
 
-export type SettingKey = "explorerEnabled" | "oneDriveEnabled";
+export type SettingKey = "explorerEnabled" | "oneDriveEnabled" | "allowedSites";
 
 export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   explorerEnabled: "true",
   oneDriveEnabled: "true",
+  /** Empty string = every accessible site is visible. */
+  allowedSites: "",
 };
 
 export interface SettingItem {
@@ -33,11 +35,17 @@ export interface SettingItem {
 export interface SettingsMap {
   explorerEnabled: boolean;
   oneDriveEnabled: boolean;
+  /**
+   * Site IDs non-admins can see in the site picker.
+   * Empty array = all accessible sites are visible (default).
+   */
+  allowedSites: string[];
 }
 
 export const DEFAULT_SETTINGS: SettingsMap = {
   explorerEnabled: true,
   oneDriveEnabled: true,
+  allowedSites: [],
 };
 
 function toBool(s: string | undefined): boolean {
@@ -118,9 +126,11 @@ export async function fetchAllSettings(
 export function settingsToMap(items: SettingItem[]): SettingsMap {
   const byKey: Record<string, string> = {};
   for (const it of items) byKey[it.key] = it.value;
+  const rawSites = byKey.allowedSites ?? "";
   return {
     explorerEnabled: toBool(byKey.explorerEnabled ?? SETTING_DEFAULTS.explorerEnabled),
     oneDriveEnabled: toBool(byKey.oneDriveEnabled ?? SETTING_DEFAULTS.oneDriveEnabled),
+    allowedSites: rawSites ? rawSites.split(",").map((s) => s.trim()).filter(Boolean) : [],
   };
 }
 

@@ -3,6 +3,7 @@ import {
   GlobeRegular,
   MailRegular,
   NotebookRegular,
+  CalendarLtrRegular,
 } from "@fluentui/react-icons";
 import { useTranslation } from "../../i18n/useTranslation";
 
@@ -31,6 +32,11 @@ const LINKS: Link[] = [
     href: "https://www.onenote.com/notebooks",
     icon: <NotebookRegular />,
     popup: { width: 1100, height: 750 },
+  },
+  {
+    labelKey: "quicklinks.pronote",
+    href: "https://2050048n.index-education.net/pronote/",
+    icon: <CalendarLtrRegular />,
   },
 ];
 

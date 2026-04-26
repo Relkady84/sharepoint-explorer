@@ -33,6 +33,7 @@ interface Bundle {
     site: string;
     outlook: string;
     notes: string;
+    pronote: string;
     sectionLabel: string;
   };
   onedrive: {
@@ -68,6 +69,9 @@ interface Bundle {
     listMissingBody: string;
     needAdminTitle: string;
     needAdminBody: string;
+    sitesSection: string;
+    sitesDescription: string;
+    sitesAllVisible: string;
   };
 }
 
@@ -99,6 +103,7 @@ const fr: Bundle = {
     site: "Site du lycée",
     outlook: "Outlook",
     notes: "Mes notes",
+    pronote: "Pronote",
     sectionLabel: "Liens rapides",
   },
   onedrive: {
@@ -138,6 +143,10 @@ const fr: Bundle = {
       "Créez une liste SharePoint nommée AppSettings sur ce site, avec une colonne supplémentaire Value (Ligne de texte simple). La colonne Title intégrée stocke la clé.",
     needAdminTitle: "Accès administrateur requis",
     needAdminBody: "Seuls les administrateurs peuvent modifier ces paramètres.",
+    sitesSection: "Sites visibles",
+    sitesDescription:
+      "Choisissez quels sites SharePoint apparaissent dans le sélecteur de site pour les utilisateurs non-administrateurs. Tout cocher = tous les sites sont visibles.",
+    sitesAllVisible: "Tous les sites accessibles sont visibles",
   },
 };
 
@@ -169,6 +178,7 @@ const en: Bundle = {
     site: "School website",
     outlook: "Outlook",
     notes: "My notes",
+    pronote: "Pronote",
     sectionLabel: "Quick links",
   },
   onedrive: {
@@ -208,6 +218,10 @@ const en: Bundle = {
       "Create a SharePoint list called AppSettings on this site, with one extra column Value (Single line of text). The built-in Title column stores the key.",
     needAdminTitle: "Administrator access required",
     needAdminBody: "Only administrators can change these settings.",
+    sitesSection: "Visible sites",
+    sitesDescription:
+      "Choose which SharePoint sites appear in the site picker for non-admin users. Check all to show every accessible site.",
+    sitesAllVisible: "All accessible sites are visible",
   },
 };
 

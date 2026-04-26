@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
 import { useNavigationStore } from "../store/navigationStore";
 import {
@@ -10,6 +10,43 @@ import {
   type SettingItem,
   type SettingsMap,
 } from "../api/settingsApi";
+
+// ── Persist last-known settings across site switches ─────────────────────────
+// The admin configures settings on one site. When the user browses a different
+// site (which may not have the AppSettings list at all), we fall back to the
+// last cached settings instead of the all-enabled defaults. This prevents tabs
+// that the admin disabled from reappearing whenever the user changes sites.
+
+const SETTINGS_CACHE_KEY = "appSettingsCache";
+
+function readCachedSettings(): SettingsMap | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SettingsMap>;
+    if (
+      typeof parsed.explorerEnabled === "boolean" &&
+      typeof parsed.oneDriveEnabled === "boolean"
+    ) {
+      return {
+        explorerEnabled: parsed.explorerEnabled,
+        oneDriveEnabled: parsed.oneDriveEnabled,
+        allowedSites: Array.isArray(parsed.allowedSites) ? parsed.allowedSites : [],
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function writeCachedSettings(s: SettingsMap) {
+  try {
+    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(s));
+  } catch {
+    // ignore
+  }
+}
 
 interface UseAppSettingsResult {
   settings: SettingsMap;
@@ -38,11 +75,17 @@ export function useAppSettings(): UseAppSettingsResult {
     queryKey: ["appSettings", siteId],
     queryFn: async () => {
       const token = await getToken();
-      return fetchAllSettings(token, siteId!);
+      const items = await fetchAllSettings(token, siteId!);
+      // Persist whenever we load successfully so other sites use these values
+      writeCachedSettings(settingsToMap(items));
+      return items;
     },
     enabled: !!siteId,
     staleTime: 1000 * 60 * 5,
     retry: 1,
+    // While switching sites keep showing the previous site's settings instead
+    // of flashing back to all-enabled defaults during the loading transition.
+    placeholderData: keepPreviousData,
   });
 
   const errMsg = (query.error as Error | undefined)?.message ?? "";
@@ -50,9 +93,10 @@ export function useAppSettings(): UseAppSettingsResult {
     !!query.error && (errMsg.includes("introuvable") || errMsg.includes("AppSettings"));
 
   const rawItems = query.data ?? [];
+  // Priority: loaded data → last-cached settings → hard defaults
   const settings: SettingsMap = query.data
     ? settingsToMap(rawItems)
-    : { ...DEFAULT_SETTINGS };
+    : (readCachedSettings() ?? { ...DEFAULT_SETTINGS });
 
   const mutation = useMutation({
     mutationFn: async ({ key, value }: { key: SettingKey; value: string }) => {

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Dropdown,
   Option,
@@ -12,6 +13,8 @@ import { useSites } from "../../hooks/useSites";
 import { useNavigationStore } from "../../store/navigationStore";
 import { getSiteDrive } from "../../api/sitesApi";
 import { useAuth } from "../../auth/useAuth";
+import { useAppSettings } from "../../hooks/useAppSettings";
+import { useIsAdmin } from "../../hooks/useAppPins";
 
 const useStyles = makeStyles({
   wrapper: {
@@ -50,6 +53,16 @@ export function SiteSelector() {
   const { data: sites, isLoading, isError, error, refetch } = useSites();
   const { setSite } = useNavigationStore();
   const { getToken } = useAuth();
+  const isAdmin = useIsAdmin();
+  const { settings } = useAppSettings();
+
+  // Non-admins only see the sites the admin has allowed.
+  // Empty allowedSites = every site is visible (default).
+  const visibleSites = useMemo(() => {
+    if (!sites) return [];
+    if (isAdmin || settings.allowedSites.length === 0) return sites;
+    return sites.filter((s) => settings.allowedSites.includes(s.id));
+  }, [sites, isAdmin, settings.allowedSites]);
 
   const handleSelect = async (_: unknown, data: { optionValue?: string; optionText?: string }) => {
     if (!data.optionValue) return;
@@ -99,7 +112,7 @@ export function SiteSelector() {
           placeholder="Select a site..."
           onOptionSelect={handleSelect}
         >
-          {(sites ?? []).map((site) => (
+          {visibleSites.map((site) => (
             <Option
               key={site.id}
               value={`${site.id}|||${site.displayName}`}
