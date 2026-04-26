@@ -10,7 +10,8 @@
       "Bash(npx tsc *)",
       "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\raede\\\\AppData\\\\Local\\\\Temp\\\\make-shortcut.ps1\")",
       "Bash(npm run *)",
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "PowerShell(try { \\(Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 3\\).StatusCode } catch { \"DOWN: $_\" })"
     ]
   }
 }

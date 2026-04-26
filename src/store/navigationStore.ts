@@ -43,6 +43,7 @@ interface NavigationState {
 }
 
 const DESKTOP_SIDEBAR_KEY = "desktopSidebarOpen";
+const LAST_SITE_KEY = "lastSite";
 
 function readInitialDesktopSidebar(): boolean {
   try {
@@ -55,15 +56,38 @@ function readInitialDesktopSidebar(): boolean {
   return true; // Default: visible on first load
 }
 
+interface PersistedSite {
+  siteId: string;
+  siteName: string;
+  driveId: string;
+}
+
+function readInitialSite(): PersistedSite | null {
+  try {
+    const raw = localStorage.getItem(LAST_SITE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedSite;
+    if (parsed?.siteId && parsed?.driveId) return parsed;
+  } catch {
+    // ignore (corrupt JSON, private mode, etc.)
+  }
+  return null;
+}
+
 function isMobileViewport(): boolean {
   if (typeof window === "undefined") return false;
   return window.innerWidth <= 768;
 }
 
+// Restore the last-used site so settings (which live on a site) load on app
+// startup. Without this, the AppSettings hook can't fetch until the user
+// re-picks a site, and the sidebar shows every tab regardless of admin toggles.
+const persistedSite = readInitialSite();
+
 export const useNavigationStore = create<NavigationState>((set, get) => ({
-  siteId: null,
-  siteName: "",
-  driveId: null,
+  siteId: persistedSite?.siteId ?? null,
+  siteName: persistedSite?.siteName ?? "",
+  driveId: persistedSite?.driveId ?? null,
   currentItemId: null,
   breadcrumbs: [],
   searchQuery: "",
@@ -71,7 +95,15 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
   mobileSidebarOpen: false,
   desktopSidebarOpen: readInitialDesktopSidebar(),
 
-  setSite: (siteId, siteName, driveId) =>
+  setSite: (siteId, siteName, driveId) => {
+    try {
+      localStorage.setItem(
+        LAST_SITE_KEY,
+        JSON.stringify({ siteId, siteName, driveId })
+      );
+    } catch {
+      // ignore
+    }
     set({
       siteId,
       siteName,
@@ -79,7 +111,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
       currentItemId: null,
       breadcrumbs: [],
       searchQuery: "",
-    }),
+    });
+  },
 
   navigateTo: (item) =>
     set((state) => ({
@@ -135,7 +168,12 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     }
   },
 
-  reset: () =>
+  reset: () => {
+    try {
+      localStorage.removeItem(LAST_SITE_KEY);
+    } catch {
+      // ignore
+    }
     set({
       siteId: null,
       siteName: "",
@@ -146,5 +184,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
       activeView: "explorer",
       mobileSidebarOpen: false,
       // Don't reset desktopSidebarOpen — it's a UI preference, not session state
-    }),
+    });
+  },
 }));
