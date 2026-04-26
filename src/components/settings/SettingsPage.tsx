@@ -86,6 +86,24 @@ const useStyles = makeStyles({
   caveat: {
     marginTop: "8px",
   },
+  siteListBox: {
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    maxHeight: "220px",
+    overflowY: "auto",
+    padding: "6px 8px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+  },
+  siteListHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: "6px",
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    marginBottom: "4px",
+  },
   siteEmbed: {
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,

@@ -72,6 +72,7 @@ interface Bundle {
     sitesSection: string;
     sitesDescription: string;
     sitesAllVisible: string;
+    sitesSelectAll: string;
   };
 }
 
@@ -147,6 +148,7 @@ const fr: Bundle = {
     sitesDescription:
       "Choisissez quels sites SharePoint apparaissent dans le sélecteur de site pour les utilisateurs non-administrateurs. Tout cocher = tous les sites sont visibles.",
     sitesAllVisible: "Tous les sites accessibles sont visibles",
+    sitesSelectAll: "Tout sélectionner",
   },
 };
 
