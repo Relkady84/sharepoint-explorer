@@ -70,10 +70,9 @@ const useStyles = makeStyles({
     cursor: "pointer",
     userSelect: "none",
     backgroundColor: tokens.colorNeutralBackground1,
-    transition: "background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease",
+    transition: "background 0.12s ease, box-shadow 0.12s ease",
     ":hover": {
       backgroundColor: tokens.colorNeutralBackground3,
-      borderColor: tokens.colorNeutralStroke1Hover,
       boxShadow: tokens.shadow4,
     },
     ":focus-visible": {
@@ -82,11 +81,11 @@ const useStyles = makeStyles({
     },
   },
   navItemActive: {
+    // Override the full border shorthand so the colour changes cleanly
+    border: `1px solid ${tokens.colorBrandForeground1}`,
     backgroundColor: tokens.colorBrandBackground2,
-    borderColor: tokens.colorBrandStroke1,
     ":hover": {
       backgroundColor: tokens.colorBrandBackground2Hover,
-      borderColor: tokens.colorBrandStroke1,
       boxShadow: tokens.shadow4,
     },
   },
