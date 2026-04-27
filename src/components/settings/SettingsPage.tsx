@@ -15,7 +15,9 @@ import {
   Button,
   Input,
 } from "@fluentui/react-components";
-import { Settings24Regular, CheckmarkCircle20Filled, DismissRegular } from "@fluentui/react-icons";
+import { Settings24Regular, CheckmarkCircle20Filled, DismissRegular, PersonSearch20Regular } from "@fluentui/react-icons";
+import { useAuth } from "../../auth/useAuth";
+import { searchUsers, type UserResult } from "../../api/usersApi";
 import { useAppSettings } from "../../hooks/useAppSettings";
 import { useIsAdmin } from "../../hooks/useAppPins";
 import { useTranslation } from "../../i18n/useTranslation";
@@ -124,6 +126,40 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
     padding: "6px 0",
   },
+  searchWrapper: {
+    position: "relative",
+  },
+  suggestionDropdown: {
+    position: "absolute",
+    top: "calc(100% + 2px)",
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    backgroundColor: tokens.colorNeutralBackground1,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    boxShadow: tokens.shadow16,
+    maxHeight: "220px",
+    overflowY: "auto",
+  },
+  suggestionItem: {
+    padding: "8px 12px",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    gap: "1px",
+    ":hover": {
+      backgroundColor: tokens.colorNeutralBackground2,
+    },
+  },
+  suggestionName: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  suggestionEmail: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
 });
 
 export function SettingsPage() {
@@ -132,6 +168,7 @@ export function SettingsPage() {
   const isAdmin = useIsAdmin();
   const { siteId, siteName } = useNavigationStore();
 
+  const { getToken } = useAuth();
   const { settings, isLoading, isMissingList, error, update, updateAllowedSites, updateAdminEmails, isUpdating } = useAppSettings();
   const { data: allSites, isLoading: sitesLoading } = useSites();
 
@@ -141,6 +178,37 @@ export function SettingsPage() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [adminEmailError, setAdminEmailError] = useState("");
   const [isSavingAdmins, setIsSavingAdmins] = useState(false);
+
+  // ── User-search suggestions for the admin email field ────────────────────
+  const [userSuggestions, setUserSuggestions] = useState<UserResult[]>([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Debounced search: fires 350 ms after the user stops typing (≥2 chars)
+  useEffect(() => {
+    const q = newAdminEmail.trim();
+    if (q.length < 2) {
+      setUserSuggestions([]);
+      setShowSuggestions(false);
+      setIsSearchingUsers(false);
+      return;
+    }
+    setIsSearchingUsers(true);
+    setShowSuggestions(true);
+    const tid = setTimeout(async () => {
+      try {
+        const token = await getToken();
+        const results = await searchUsers(token, q);
+        setUserSuggestions(results);
+      } catch {
+        setUserSuggestions([]);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 350);
+    return () => clearTimeout(tid);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newAdminEmail]);
 
   // ── Site picker "change" state ────────────────────────────────────────────
   const [showSitePicker, setShowSitePicker] = useState(false);
@@ -455,25 +523,72 @@ export function SettingsPage() {
                     </Text>
                   )}
 
-                  {/* Add new admin */}
-                  <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                    <Input
-                      style={{ flex: 1 }}
-                      placeholder={t("settings.adminsPlaceholder")}
-                      value={newAdminEmail}
-                      onChange={(_, d) => { setNewAdminEmail(d.value); setAdminEmailError(""); }}
-                      onKeyDown={async (e) => { if (e.key === "Enter") await handleAddAdmin(); }}
-                      disabled={isSavingAdmins}
-                    />
-                    <Button
-                      appearance="primary"
-                      size="small"
-                      disabled={isSavingAdmins || !newAdminEmail.trim()}
-                      onClick={handleAddAdmin}
-                    >
-                      {t("settings.adminsAdd")}
-                    </Button>
+                  {/* Add new admin — with live user-search suggestions */}
+                  <div className={styles.searchWrapper}>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <Input
+                        contentBefore={<PersonSearch20Regular />}
+                        style={{ flex: 1 }}
+                        placeholder={t("settings.adminsPlaceholder")}
+                        value={newAdminEmail}
+                        onChange={(_, d) => {
+                          setNewAdminEmail(d.value);
+                          setAdminEmailError("");
+                        }}
+                        onFocus={() => {
+                          if (userSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        onBlur={() => {
+                          // Small delay so onMouseDown on a suggestion fires first
+                          setTimeout(() => setShowSuggestions(false), 160);
+                        }}
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") { setShowSuggestions(false); await handleAddAdmin(); }
+                          if (e.key === "Escape") setShowSuggestions(false);
+                        }}
+                        disabled={isSavingAdmins}
+                      />
+                      <Button
+                        appearance="primary"
+                        size="small"
+                        disabled={isSavingAdmins || !newAdminEmail.trim()}
+                        onClick={handleAddAdmin}
+                      >
+                        {t("settings.adminsAdd")}
+                      </Button>
+                    </div>
+
+                    {/* Suggestions dropdown */}
+                    {showSuggestions && (
+                      <div className={styles.suggestionDropdown}>
+                        {isSearchingUsers ? (
+                          <div style={{ padding: "10px 12px" }}>
+                            <Spinner size="tiny" label="Recherche…" />
+                          </div>
+                        ) : userSuggestions.length === 0 ? (
+                          <div style={{ padding: "10px 12px" }}>
+                            <Text className={styles.suggestionEmail}>Aucun résultat</Text>
+                          </div>
+                        ) : (
+                          userSuggestions.map((u) => (
+                            <div
+                              key={u.email}
+                              className={styles.suggestionItem}
+                              onMouseDown={() => {
+                                // onMouseDown fires before onBlur — pick then add immediately
+                                setNewAdminEmail(u.email);
+                                setShowSuggestions(false);
+                              }}
+                            >
+                              <Text className={styles.suggestionName}>{u.name}</Text>
+                              <Text className={styles.suggestionEmail}>{u.email}</Text>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
+
                   {adminEmailError && (
                     <Text style={{ color: tokens.colorPaletteRedForeground1, fontSize: tokens.fontSizeBase200 }}>
                       {adminEmailError}

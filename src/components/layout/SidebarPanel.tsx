@@ -43,12 +43,15 @@ const useStyles = makeStyles({
     },
   },
   tabs: {
-    padding: "8px 8px 0",
+    // Vertical tab list — each nav item is a full-width row, text never clips
+    padding: "4px 0",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     flexShrink: 0,
   },
   tab: {
-    fontSize: tokens.fontSizeBase200,
+    // Fill the sidebar width and keep text from wrapping
+    width: "100%",
+    fontSize: tokens.fontSizeBase300,
   },
   scrollArea: {
     flex: 1,
@@ -112,8 +115,10 @@ export function SidebarPanel() {
       <div className={styles.tabs}>
         <TabList
           size="small"
+          vertical
           selectedValue={sidebarSelected}
           onTabSelect={(_, d) => handleTabSelect(d.value as AppView)}
+          style={{ width: "100%" }}
         >
           {showExplorer && (
             <Tab value="explorer" icon={<FolderRegular />} className={styles.tab}>
