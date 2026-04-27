@@ -66,6 +66,8 @@ interface Bundle {
     errorForbidden: string;
     copy: string;
     move: string;
+    newFolder: string;
+    newFolderPlaceholder: string;
   };
   settings: {
     title: string;
@@ -156,6 +158,8 @@ const fr: Bundle = {
     errorForbidden: "Accès refusé — vous n'avez pas la permission d'effectuer cette action.",
     copy: "Copier",
     move: "Déplacer",
+    newFolder: "Nouveau dossier",
+    newFolderPlaceholder: "Nom du dossier…",
   },
   settings: {
     title: "Paramètres",
@@ -250,6 +254,8 @@ const en: Bundle = {
     errorForbidden: "Access denied — you do not have permission to perform this action.",
     copy: "Copy",
     move: "Move",
+    newFolder: "New folder",
+    newFolderPlaceholder: "Folder name…",
   },
   settings: {
     title: "Settings",

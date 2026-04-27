@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
-import { listFolderChildren, searchInFolder, deleteItem, renameItem, copyItem, moveItem } from "../api/driveApi";
+import { listFolderChildren, searchInFolder, deleteItem, renameItem, copyItem, moveItem, createFolder } from "../api/driveApi";
 import { uploadFile } from "../api/uploadApi";
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -134,13 +134,23 @@ export function useDeptMutations(driveId: string | null, folderId: string | null
     onSuccess: invalidate,
   });
 
+  const createFolderMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!driveId || !folderId) throw new Error("driveId / folderId manquant");
+      const token = await getToken();
+      return createFolder(token, driveId, folderId, name);
+    },
+    onSuccess: invalidate,
+  });
+
   return {
     deleteItems: deleteMutation,
     rename: renameMutation,
     upload: uploadMutation,
     copyItems: copyMutation,
     moveItems: moveMutation,
-    isBusy: deleteMutation.isPending || renameMutation.isPending || uploadMutation.isPending || copyMutation.isPending || moveMutation.isPending,
+    createNewFolder: createFolderMutation,
+    isBusy: deleteMutation.isPending || renameMutation.isPending || uploadMutation.isPending || copyMutation.isPending || moveMutation.isPending || createFolderMutation.isPending,
   };
 }
 

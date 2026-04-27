@@ -80,6 +80,21 @@ export async function searchInFolder(
   return res.data.value;
 }
 
+/** Create a new folder inside a parent folder. Returns the created DriveItem. */
+export async function createFolder(
+  token: string,
+  driveId: string,
+  parentId: string,
+  name: string
+): Promise<DriveItem> {
+  const client = createGraphClient(token);
+  const res = await client.post<DriveItem>(
+    `/drives/${driveId}/items/${parentId}/children`,
+    { name, folder: {}, "@microsoft.graph.conflictBehavior": "rename" }
+  );
+  return res.data;
+}
+
 /** Delete a drive item (file or folder). Throws on permission error. */
 export async function deleteItem(
   token: string,

@@ -14,6 +14,7 @@ import {
 import {
   FolderRegular,
   FolderOpenRegular,
+  FolderAdd20Regular,
   ChevronDown20Regular,
   ChevronRight20Regular,
   ArrowDownload20Regular,
@@ -23,6 +24,8 @@ import {
   Rename20Regular,
   Copy20Regular,
   ArrowMove20Regular,
+  Checkmark20Regular,
+  Dismiss20Regular,
 } from "@fluentui/react-icons";
 import { useDeptFiles, useDeptSearch, useDeptMutations } from "../../hooks/useDepartments";
 import { CopyMoveDialog } from "./CopyMoveDialog";
@@ -77,6 +80,15 @@ const useStyles = makeStyles({
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     backgroundColor: tokens.colorNeutralBackground2,
     minHeight: "34px",
+  },
+  // ── New-folder inline row ──
+  newFolderRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "6px 16px",
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
+    backgroundColor: tokens.colorBrandBackground2,
   },
   actionError: {
     padding: "6px 16px",
@@ -553,6 +565,9 @@ export function DepartmentSection({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const q = searchQuery.trim();
@@ -573,7 +588,7 @@ export function DepartmentSection({
   );
 
   // ── CRUD mutations ──
-  const { deleteItems, rename, upload, copyItems, moveItems, isBusy } = useDeptMutations(
+  const { deleteItems, rename, upload, copyItems, moveItems, createNewFolder, isBusy } = useDeptMutations(
     isSearching ? null : driveId,
     isSearching ? null : folder.id
   );
@@ -646,6 +661,20 @@ export function DepartmentSection({
   const handleRenameCancel = useCallback(() => {
     setRenamingId(null);
   }, []);
+
+  const handleCreateFolderConfirm = async () => {
+    const name = newFolderName.trim();
+    if (!name) { setCreatingFolder(false); setNewFolderName(""); return; }
+    clearError();
+    try {
+      await createNewFolder.mutateAsync(name);
+    } catch (err) {
+      setActionError(describeApiError(err, t("dept.errorForbidden")));
+    } finally {
+      setCreatingFolder(false);
+      setNewFolderName("");
+    }
+  };
 
   const handleUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -765,7 +794,7 @@ export function DepartmentSection({
                     </>
                   )}
 
-                  {/* Upload — icon + label, always visible */}
+                  {/* Upload — always visible */}
                   <Button
                     appearance="subtle"
                     size="small"
@@ -782,6 +811,24 @@ export function DepartmentSection({
                     style={{ display: "none" }}
                     onChange={(e) => handleUpload(e.target.files)}
                   />
+
+                  {/* New folder — always visible */}
+                  <Tooltip content={t("dept.newFolder")} relationship="label">
+                    <Button
+                      appearance="subtle"
+                      size="small"
+                      icon={createNewFolder.isPending ? <Spinner size="tiny" /> : <FolderAdd20Regular />}
+                      disabled={isBusy || creatingFolder}
+                      onClick={() => {
+                        setCreatingFolder(true);
+                        setNewFolderName("");
+                        // Focus the input on next tick
+                        setTimeout(() => newFolderInputRef.current?.focus(), 50);
+                      }}
+                    >
+                      {t("dept.newFolder")}
+                    </Button>
+                  </Tooltip>
                 </div>
               )}
 
@@ -790,6 +837,40 @@ export function DepartmentSection({
                 <Text className={styles.actionError}>
                   ⚠️ {actionError}
                 </Text>
+              )}
+
+              {/* ── Inline new-folder row ── */}
+              {creatingFolder && !isSearching && (
+                <div className={styles.newFolderRow}>
+                  <FolderAdd20Regular style={{ color: tokens.colorBrandForeground1, flexShrink: 0 }} />
+                  <Input
+                    ref={newFolderInputRef}
+                    size="small"
+                    style={{ flex: 1 }}
+                    placeholder={t("dept.newFolderPlaceholder")}
+                    value={newFolderName}
+                    onChange={(_, d) => setNewFolderName(d.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); handleCreateFolderConfirm(); }
+                      if (e.key === "Escape") { setCreatingFolder(false); setNewFolderName(""); }
+                    }}
+                    disabled={createNewFolder.isPending}
+                  />
+                  <Button
+                    appearance="primary"
+                    size="small"
+                    icon={createNewFolder.isPending ? <Spinner size="tiny" /> : <Checkmark20Regular />}
+                    disabled={createNewFolder.isPending || !newFolderName.trim()}
+                    onClick={handleCreateFolderConfirm}
+                  />
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    icon={<Dismiss20Regular />}
+                    disabled={createNewFolder.isPending}
+                    onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}
+                  />
+                </div>
               )}
 
               {/* ── File rows ── */}
