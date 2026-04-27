@@ -244,26 +244,21 @@ export function SettingsPage() {
               </MessageBarBody>
             </MessageBar>
           ) : !siteId ? (
-            // Admin without a site selected — let them pick one right here
-            // instead of bouncing back to the sidebar.
+            // Admin without a site selected — embed picker inline
             <div className={styles.siteEmbed}>
               <SiteSelector />
             </div>
           ) : isLoading ? (
+            // True first-load (no cached data at all)
             <Spinner size="small" label={t("common.loading")} />
-          ) : isMissingList ? (
-            <MessageBar intent="warning" className={styles.caveat}>
-              <MessageBarBody>
-                <MessageBarTitle>{t("settings.listMissingTitle")}</MessageBarTitle>
-                {t("settings.listMissingBody")}
-              </MessageBarBody>
-            </MessageBar>
-          ) : error ? (
-            <MessageBar intent="error" className={styles.caveat}>
-              <MessageBarBody>{error.message}</MessageBarBody>
-            </MessageBar>
           ) : (
+            // ── Admin settings panel ──────────────────────────────────────
+            // Shown whether or not AppSettings list exists on this site.
+            // isMissingList / error appear as inline notices rather than
+            // replacing the whole panel, so the UI never goes blank on a
+            // site switch.
             <>
+              {/* ── Current site / change picker ── */}
               {showSitePicker ? (
                 <div className={styles.siteEmbed}>
                   <SiteSelector />
@@ -289,13 +284,30 @@ export function SettingsPage() {
                   </Button>
                 </div>
               )}
+
+              {/* ── Inline warnings ── */}
+              {isMissingList && (
+                <MessageBar intent="warning" className={styles.caveat}>
+                  <MessageBarBody>
+                    <MessageBarTitle>{t("settings.listMissingTitle")}</MessageBarTitle>
+                    {t("settings.listMissingBody")}
+                  </MessageBarBody>
+                </MessageBar>
+              )}
+              {error && !isMissingList && (
+                <MessageBar intent="error" className={styles.caveat}>
+                  <MessageBarBody>{error.message}</MessageBarBody>
+                </MessageBar>
+              )}
+
+              {/* ── Feature toggles ── */}
               <div className={styles.toggleRow}>
                 <Text className={styles.toggleLabel}>
                   {t("settings.showExplorerToAll")}
                 </Text>
                 <Switch
                   checked={settings.explorerEnabled}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isMissingList}
                   onChange={(_, d) => handleToggle("explorerEnabled", d.checked)}
                 />
               </div>
@@ -305,12 +317,14 @@ export function SettingsPage() {
                 </Text>
                 <Switch
                   checked={settings.oneDriveEnabled}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isMissingList}
                   onChange={(_, d) => handleToggle("oneDriveEnabled", d.checked)}
                 />
               </div>
 
-              {/* Visible sites */}
+              {/* ── Visible sites — hidden when list is missing ── */}
+              {!isMissingList && (
+              <>
               <Divider style={{ margin: "8px 0 4px" }} />
               <Text className={styles.sectionTitle}>{t("settings.sitesSection")}</Text>
               <Text className={styles.sectionDescription}>{t("settings.sitesDescription")}</Text>
@@ -363,6 +377,8 @@ export function SettingsPage() {
                     </div>
                   )}
                 </>
+              )}
+              </>
               )}
 
               <MessageBar intent="warning" className={styles.caveat}>
