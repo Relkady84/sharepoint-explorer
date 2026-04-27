@@ -13,8 +13,9 @@ import {
   MessageBarTitle,
   Checkbox,
   Button,
+  Input,
 } from "@fluentui/react-components";
-import { Settings24Regular, CheckmarkCircle20Filled } from "@fluentui/react-icons";
+import { Settings24Regular, CheckmarkCircle20Filled, DismissRegular } from "@fluentui/react-icons";
 import { useAppSettings } from "../../hooks/useAppSettings";
 import { useIsAdmin } from "../../hooks/useAppPins";
 import { useTranslation } from "../../i18n/useTranslation";
@@ -131,8 +132,15 @@ export function SettingsPage() {
   const isAdmin = useIsAdmin();
   const { siteId, siteName } = useNavigationStore();
 
-  const { settings, isLoading, isMissingList, error, update, updateAllowedSites, isUpdating } = useAppSettings();
+  const { settings, isLoading, isMissingList, error, update, updateAllowedSites, updateAdminEmails, isUpdating } = useAppSettings();
   const { data: allSites, isLoading: sitesLoading } = useSites();
+
+  const VITE_ADMIN_EMAILS_LIST: string[] = (import.meta.env.VITE_ADMIN_EMAILS ?? "")
+    .split(/[,;]/).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [adminEmailError, setAdminEmailError] = useState("");
+  const [isSavingAdmins, setIsSavingAdmins] = useState(false);
 
   // ── Site picker "change" state ────────────────────────────────────────────
   const [showSitePicker, setShowSitePicker] = useState(false);
@@ -201,6 +209,28 @@ export function SettingsPage() {
       console.error("Failed to update setting:", e);
       alert((e as Error).message);
     });
+  };
+
+  const handleAddAdmin = async () => {
+    const email = newAdminEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setAdminEmailError("Adresse email invalide.");
+      return;
+    }
+    if ((settings.adminEmails ?? []).includes(email)) {
+      setAdminEmailError("Cet administrateur est déjà dans la liste.");
+      return;
+    }
+    setAdminEmailError("");
+    setIsSavingAdmins(true);
+    try {
+      await updateAdminEmails([...(settings.adminEmails ?? []), email]);
+      setNewAdminEmail("");
+    } catch (e) {
+      setAdminEmailError((e as Error).message);
+    } finally {
+      setIsSavingAdmins(false);
+    }
   };
 
   return (
@@ -379,6 +409,77 @@ export function SettingsPage() {
                 </>
               )}
               </>
+              )}
+
+              {/* ── Administrators section ── */}
+              {!isMissingList && (
+                <>
+                  <Divider style={{ margin: "8px 0 4px" }} />
+                  <Text className={styles.sectionTitle}>{t("settings.adminsSection")}</Text>
+                  <Text className={styles.sectionDescription}>{t("settings.adminsDescription")}</Text>
+
+                  {/* Env-var admins (read-only) */}
+                  {VITE_ADMIN_EMAILS_LIST.map(email => (
+                    <div key={email} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
+                      <CheckmarkCircle20Filled style={{ color: tokens.colorPaletteGreenForeground1 }} />
+                      <Text style={{ fontSize: tokens.fontSizeBase200, flex: 1 }}>{email}</Text>
+                      <Text style={{ fontSize: tokens.fontSizeBase100, color: tokens.colorNeutralForeground3 }}>
+                        {t("settings.adminsEnvNote")}
+                      </Text>
+                    </div>
+                  ))}
+
+                  {/* SharePoint-stored admins */}
+                  {(settings.adminEmails ?? []).map(email => (
+                    <div key={email} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
+                      <CheckmarkCircle20Filled style={{ color: tokens.colorBrandForeground1 }} />
+                      <Text style={{ fontSize: tokens.fontSizeBase200, flex: 1 }}>{email}</Text>
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={<DismissRegular />}
+                        disabled={isSavingAdmins}
+                        onClick={async () => {
+                          const updated = settings.adminEmails.filter(e => e !== email);
+                          setIsSavingAdmins(true);
+                          try { await updateAdminEmails(updated); } catch (e) { alert((e as Error).message); }
+                          finally { setIsSavingAdmins(false); }
+                        }}
+                      />
+                    </div>
+                  ))}
+
+                  {(settings.adminEmails ?? []).length === 0 && (
+                    <Text style={{ fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 }}>
+                      {t("settings.adminsEmpty")}
+                    </Text>
+                  )}
+
+                  {/* Add new admin */}
+                  <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                    <Input
+                      style={{ flex: 1 }}
+                      placeholder={t("settings.adminsPlaceholder")}
+                      value={newAdminEmail}
+                      onChange={(_, d) => { setNewAdminEmail(d.value); setAdminEmailError(""); }}
+                      onKeyDown={async (e) => { if (e.key === "Enter") await handleAddAdmin(); }}
+                      disabled={isSavingAdmins}
+                    />
+                    <Button
+                      appearance="primary"
+                      size="small"
+                      disabled={isSavingAdmins || !newAdminEmail.trim()}
+                      onClick={handleAddAdmin}
+                    >
+                      {t("settings.adminsAdd")}
+                    </Button>
+                  </div>
+                  {adminEmailError && (
+                    <Text style={{ color: tokens.colorPaletteRedForeground1, fontSize: tokens.fontSizeBase200 }}>
+                      {adminEmailError}
+                    </Text>
+                  )}
+                </>
               )}
 
               <MessageBar intent="warning" className={styles.caveat}>

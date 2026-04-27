@@ -6,6 +6,7 @@ import {
   settingsToMap,
   upsertSetting,
   setAllowedSites,
+  setAdminEmails,
   DEFAULT_SETTINGS,
   type SettingKey,
   type SettingItem,
@@ -33,6 +34,7 @@ function readCachedSettings(): SettingsMap | null {
         explorerEnabled: parsed.explorerEnabled,
         oneDriveEnabled: parsed.oneDriveEnabled,
         allowedSites: Array.isArray(parsed.allowedSites) ? parsed.allowedSites : [],
+        adminEmails: Array.isArray(parsed.adminEmails) ? parsed.adminEmails : [],
       };
     }
   } catch {
@@ -64,6 +66,7 @@ interface UseAppSettingsResult {
    * Pass [] to remove all restrictions (every site becomes visible).
    */
   updateAllowedSites: (siteIds: string[]) => Promise<void>;
+  updateAdminEmails: (emails: string[]) => Promise<void>;
   isUpdating: boolean;
 }
 
@@ -137,6 +140,27 @@ export function useAppSettings(): UseAppSettingsResult {
     },
   });
 
+  const adminEmailsMutation = useMutation({
+    mutationFn: async (newEmails: string[]) => {
+      const token = await getToken();
+      await setAdminEmails(token, siteId!, newEmails, rawItems);
+      return newEmails;
+    },
+    onSuccess: (savedEmails) => {
+      queryClient.setQueryData<SettingItem[]>(["appSettings", siteId], (old) => {
+        if (!old) return old;
+        const without = old.filter(it => it.key !== "adminEmail");
+        const newItems: SettingItem[] = savedEmails.map((e, i) => ({
+          listItemId: `opt-admin-${i}`,
+          key: "adminEmail",
+          value: e,
+        }));
+        return [...without, ...newItems];
+      });
+      queryClient.invalidateQueries({ queryKey: ["appSettings", siteId] });
+    },
+  });
+
   return {
     settings,
     rawItems,
@@ -149,6 +173,9 @@ export function useAppSettings(): UseAppSettingsResult {
     updateAllowedSites: async (ids) => {
       await sitesMutation.mutateAsync(ids);
     },
-    isUpdating: mutation.isPending || sitesMutation.isPending,
+    updateAdminEmails: async (emails: string[]) => {
+      await adminEmailsMutation.mutateAsync(emails);
+    },
+    isUpdating: mutation.isPending || sitesMutation.isPending || adminEmailsMutation.isPending,
   };
 }

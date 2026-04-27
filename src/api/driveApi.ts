@@ -105,6 +105,36 @@ export async function renameItem(
   return res.data;
 }
 
+/** Copy a drive item to a different parent folder (possibly on a different drive). Returns immediately; the server-side copy is async. */
+export async function copyItem(
+  token: string,
+  sourceDriveId: string,
+  itemId: string,
+  destDriveId: string,
+  destFolderId: string
+): Promise<void> {
+  const client = createGraphClient(token);
+  await client.post(
+    `/drives/${sourceDriveId}/items/${itemId}/copy`,
+    { parentReference: { driveId: destDriveId, id: destFolderId } }
+  );
+}
+
+/** Move a drive item to a different parent folder within the same drive. */
+export async function moveItem(
+  token: string,
+  driveId: string,
+  itemId: string,
+  destFolderId: string
+): Promise<DriveItem> {
+  const client = createGraphClient(token);
+  const res = await client.patch<DriveItem>(
+    `/drives/${driveId}/items/${itemId}`,
+    { parentReference: { driveId, id: destFolderId } }
+  );
+  return res.data;
+}
+
 /** Get root-level folders for a specific drive (for the folder tree) */
 export async function listRootFolders(
   token: string,

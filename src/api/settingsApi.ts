@@ -46,12 +46,14 @@ export interface SettingsMap {
    * Empty array = all accessible sites are visible (default).
    */
   allowedSites: string[];
+  adminEmails: string[];
 }
 
 export const DEFAULT_SETTINGS: SettingsMap = {
   explorerEnabled: true,
   oneDriveEnabled: true,
   allowedSites: [],
+  adminEmails: [],
 };
 
 function toBool(s: string | undefined): boolean {
@@ -132,16 +134,21 @@ export async function fetchAllSettings(
 export function settingsToMap(items: SettingItem[]): SettingsMap {
   const byKey: Record<string, string> = {};
   for (const it of items) {
-    if (it.key !== ALLOWED_SITE_KEY) byKey[it.key] = it.value;
+    if (it.key !== ALLOWED_SITE_KEY && it.key !== "adminEmail") byKey[it.key] = it.value;
   }
   const allowedSites = items
     .filter((it) => it.key === ALLOWED_SITE_KEY)
+    .map((it) => it.value)
+    .filter(Boolean);
+  const adminEmails = items
+    .filter((it) => it.key === "adminEmail")
     .map((it) => it.value)
     .filter(Boolean);
   return {
     explorerEnabled: toBool(byKey.explorerEnabled ?? SETTING_DEFAULTS.explorerEnabled),
     oneDriveEnabled: toBool(byKey.oneDriveEnabled ?? SETTING_DEFAULTS.oneDriveEnabled),
     allowedSites,
+    adminEmails,
   };
 }
 
@@ -212,6 +219,27 @@ export async function setAllowedSites(
   for (const allowedId of newSiteIds) {
     await client.post(`/sites/${siteId}/lists/${listId}/items`, {
       fields: { Title: ALLOWED_SITE_KEY, [valueField]: allowedId },
+    });
+  }
+}
+
+export async function setAdminEmails(
+  token: string,
+  siteId: string,
+  newEmails: string[],
+  existing: SettingItem[]
+): Promise<void> {
+  const listId = await getListId(token, siteId);
+  const valueField = await getValueFieldName(token, siteId, listId);
+  const client = createGraphClient(token);
+
+  const oldItems = existing.filter(it => it.key === "adminEmail");
+  for (const item of oldItems) {
+    await client.delete(`/sites/${siteId}/lists/${listId}/items/${item.listItemId}`);
+  }
+  for (const email of newEmails) {
+    await client.post(`/sites/${siteId}/lists/${listId}/items`, {
+      fields: { Title: "adminEmail", [valueField]: email.toLowerCase().trim() },
     });
   }
 }

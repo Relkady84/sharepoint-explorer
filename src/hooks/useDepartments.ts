@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
-import { listFolderChildren, searchInFolder, deleteItem, renameItem } from "../api/driveApi";
+import { listFolderChildren, searchInFolder, deleteItem, renameItem, copyItem, moveItem } from "../api/driveApi";
 import { uploadFile } from "../api/uploadApi";
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -91,11 +91,56 @@ export function useDeptMutations(driveId: string | null, folderId: string | null
     onSuccess: invalidate,
   });
 
+  const copyMutation = useMutation({
+    mutationFn: async ({
+      itemIds,
+      destDriveId,
+      destFolderId,
+    }: {
+      itemIds: string[];
+      destDriveId: string;
+      destFolderId: string;
+    }) => {
+      if (!driveId) throw new Error("driveId manquant");
+      const token = await getToken();
+      await Promise.all(
+        itemIds.map((id) => copyItem(token, driveId, id, destDriveId, destFolderId))
+      );
+    },
+    onSuccess: () => {
+      // Copy is async server-side; invalidate after a short delay
+      setTimeout(invalidate, 2000);
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: async ({
+      itemIds,
+      destDriveId,
+      destFolderId,
+    }: {
+      itemIds: string[];
+      destDriveId: string;
+      destFolderId: string;
+    }) => {
+      if (!driveId) throw new Error("driveId manquant");
+      const token = await getToken();
+      // Cross-drive move is not supported by Graph — only within same drive
+      if (destDriveId !== driveId) throw new Error("Le déplacement entre deux bibliothèques différentes n'est pas supporté. Utilisez Copier à la place.");
+      await Promise.all(
+        itemIds.map((id) => moveItem(token, driveId, id, destFolderId))
+      );
+    },
+    onSuccess: invalidate,
+  });
+
   return {
     deleteItems: deleteMutation,
     rename: renameMutation,
     upload: uploadMutation,
-    isBusy: deleteMutation.isPending || renameMutation.isPending || uploadMutation.isPending,
+    copyItems: copyMutation,
+    moveItems: moveMutation,
+    isBusy: deleteMutation.isPending || renameMutation.isPending || uploadMutation.isPending || copyMutation.isPending || moveMutation.isPending,
   };
 }
 

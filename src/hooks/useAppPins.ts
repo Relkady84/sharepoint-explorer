@@ -10,6 +10,7 @@ import {
   deleteAppPin,
   type AppPin,
 } from "../api/pinsApi";
+import { useAppSettings } from "./useAppSettings";
 
 export type { AppPin };
 
@@ -36,9 +37,15 @@ export function useCurrentUserEmail(): string {
 
 export function useIsAdmin(): boolean {
   const email = useCurrentUserEmail();
-  // If no admin emails configured, nobody is admin (prevents accidental open access)
-  if (ADMIN_EMAILS.length === 0) return false;
-  return ADMIN_EMAILS.includes(email);
+  const { settings } = useAppSettings();
+
+  // Env-var admins (compile-time, always available)
+  const envAdmin = ADMIN_EMAILS.length > 0 && ADMIN_EMAILS.includes(email);
+
+  // SharePoint-stored admins (dynamic, loaded async)
+  const spAdmin = (settings.adminEmails ?? []).includes(email);
+
+  return envAdmin || spAdmin;
 }
 
 // ── Main hook ─────────────────────────────────────────────────────────────────

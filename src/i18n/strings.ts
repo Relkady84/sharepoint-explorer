@@ -55,6 +55,18 @@ interface Bundle {
     everyone: string;
     searchPlaceholder: string;
   };
+  dept: {
+    loading: string;
+    searching: string;
+    empty: string;
+    upload: string;
+    rename: string;
+    delete: string;
+    deleteConfirm: string;  // contains {count}
+    errorForbidden: string;
+    copy: string;
+    move: string;
+  };
   settings: {
     title: string;
     languageSection: string;
@@ -73,6 +85,12 @@ interface Bundle {
     sitesDescription: string;
     sitesAllVisible: string;
     sitesSelectAll: string;
+    adminsSection: string;
+    adminsDescription: string;
+    adminsPlaceholder: string;
+    adminsAdd: string;
+    adminsEmpty: string;
+    adminsEnvNote: string;
   };
 }
 
@@ -127,6 +145,18 @@ const fr: Bundle = {
     everyone: "Tout le monde",
     searchPlaceholder: "Rechercher dans tous les dossiers épinglés…",
   },
+  dept: {
+    loading: "Chargement…",
+    searching: "Recherche…",
+    empty: "Aucun document dans ce dossier.",
+    upload: "Importer",
+    rename: "Renommer",
+    delete: "Supprimer",
+    deleteConfirm: "Supprimer {count} élément(s) ? Cette action est irréversible.",
+    errorForbidden: "Accès refusé — vous n'avez pas la permission d'effectuer cette action.",
+    copy: "Copier",
+    move: "Déplacer",
+  },
   settings: {
     title: "Paramètres",
     languageSection: "Langue",
@@ -149,6 +179,12 @@ const fr: Bundle = {
       "Choisissez quels sites SharePoint apparaissent dans le sélecteur de site pour les utilisateurs non-administrateurs. Tout cocher = tous les sites sont visibles.",
     sitesAllVisible: "Tous les sites accessibles sont visibles",
     sitesSelectAll: "Tout sélectionner",
+    adminsSection: "Administrateurs supplémentaires",
+    adminsDescription: "Ces utilisateurs ont les mêmes droits que vous : gérer les épingles, activer/désactiver les onglets, choisir les sites visibles.",
+    adminsPlaceholder: "Email de l'administrateur…",
+    adminsAdd: "Ajouter",
+    adminsEmpty: "Aucun administrateur supplémentaire configuré.",
+    adminsEnvNote: "Administrateur principal (configuré dans l'environnement, non modifiable ici)",
   },
 };
 
@@ -203,6 +239,18 @@ const en: Bundle = {
     everyone: "Everyone",
     searchPlaceholder: "Search across all pinned folders…",
   },
+  dept: {
+    loading: "Loading…",
+    searching: "Searching…",
+    empty: "No documents in this folder.",
+    upload: "Upload",
+    rename: "Rename",
+    delete: "Delete",
+    deleteConfirm: "Delete {count} item(s)? This action is irreversible.",
+    errorForbidden: "Access denied — you do not have permission to perform this action.",
+    copy: "Copy",
+    move: "Move",
+  },
   settings: {
     title: "Settings",
     languageSection: "Language",
@@ -225,6 +273,12 @@ const en: Bundle = {
       "Choose which SharePoint sites appear in the site picker for non-admin users. Check all to show every accessible site.",
     sitesAllVisible: "All accessible sites are visible",
     sitesSelectAll: "Select all",
+    adminsSection: "Additional administrators",
+    adminsDescription: "These users have the same rights as you: manage pins, toggle tabs, choose visible sites.",
+    adminsPlaceholder: "Administrator email…",
+    adminsAdd: "Add",
+    adminsEmpty: "No additional administrators configured.",
+    adminsEnvNote: "Primary administrator (configured in environment, not editable here)",
   },
 };
 

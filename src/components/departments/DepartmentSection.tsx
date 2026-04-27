@@ -21,13 +21,17 @@ import {
   Delete20Regular,
   ArrowUpload20Regular,
   Rename20Regular,
+  Copy20Regular,
+  ArrowMove20Regular,
 } from "@fluentui/react-icons";
 import { useDeptFiles, useDeptSearch, useDeptMutations } from "../../hooks/useDepartments";
+import { CopyMoveDialog } from "./CopyMoveDialog";
 import { FileTypeIcon } from "../files/FileTypeIcon";
 import { formatFileSize } from "../../utils/fileSize";
 import { formatDate } from "../../utils/dateFormat";
 import { getItemWithDownloadUrl } from "../../api/driveApi";
 import { useAuth } from "../../auth/useAuth";
+import { useTranslation } from "../../i18n/useTranslation";
 import type { DriveItem } from "../../types/graph";
 
 const useStyles = makeStyles({
@@ -237,13 +241,13 @@ async function downloadItem(
   }
 }
 
-function describeApiError(err: unknown): string {
+function describeApiError(err: unknown, errorForbidden?: string): string {
   const msg = err instanceof Error ? err.message : String(err);
   const axiosErr = err as { response?: { status?: number; data?: { error?: { message?: string } } } };
   const status = axiosErr?.response?.status;
   const spMsg = axiosErr?.response?.data?.error?.message ?? "";
   if (status === 403 || status === 401)
-    return "Accès refusé — vous n'avez pas la permission d'effectuer cette action sur ce dossier SharePoint.";
+    return errorForbidden ?? "Accès refusé — vous n'avez pas la permission d'effectuer cette action sur ce dossier SharePoint.";
   if (spMsg) return `Erreur SharePoint : ${spMsg}`;
   return `Erreur : ${msg}`;
 }
@@ -541,7 +545,9 @@ export function DepartmentSection({
   hideHeader = false,
 }: Props) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
+  const [copyMoveMode, setCopyMoveMode] = useState<"copy" | "move" | null>(null);
 
   // ── File management state ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -567,7 +573,7 @@ export function DepartmentSection({
   );
 
   // ── CRUD mutations ──
-  const { deleteItems, rename, upload, isBusy } = useDeptMutations(
+  const { deleteItems, rename, upload, copyItems, moveItems, isBusy } = useDeptMutations(
     isSearching ? null : driveId,
     isSearching ? null : folder.id
   );
@@ -609,13 +615,13 @@ export function DepartmentSection({
   const handleDelete = async () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
-    if (!confirm(`Supprimer ${count} élément${count > 1 ? "s" : ""} ? Cette action est irréversible.`)) return;
+    if (!confirm(t("dept.deleteConfirm").replace("{count}", String(count)))) return;
     clearError();
     try {
       await deleteItems.mutateAsync([...selectedIds]);
       setSelectedIds(new Set());
     } catch (err) {
-      setActionError(describeApiError(err));
+      setActionError(describeApiError(err, t("dept.errorForbidden")));
     }
   };
 
@@ -633,7 +639,7 @@ export function DepartmentSection({
     try {
       await rename.mutateAsync({ itemId: id, newName: trimmed });
     } catch (err) {
-      setActionError(describeApiError(err));
+      setActionError(describeApiError(err, t("dept.errorForbidden")));
     }
   }, [rename]);
 
@@ -652,7 +658,7 @@ export function DepartmentSection({
         { file: fileArray[index] },
         {
           onSuccess: () => uploadNext(index + 1),
-          onError: (err) => setActionError(describeApiError(err)),
+          onError: (err) => setActionError(describeApiError(err, t("dept.errorForbidden"))),
         }
       );
     };
@@ -695,7 +701,7 @@ export function DepartmentSection({
             <div className={styles.loadingRow}>
               <Spinner size="tiny" />
               <Text style={{ fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 }}>
-                {isSearching ? "Recherche…" : "Chargement…"}
+                {isSearching ? t("dept.searching") : t("dept.loading")}
               </Text>
             </div>
           ) : browseErrorMsg ? (
@@ -741,8 +747,22 @@ export function DepartmentSection({
                       disabled={rename.isPending}
                       onClick={() => handleStartRename([...selectedIds][0])}
                     >
-                      Renommer
+                      {t("dept.rename")}
                     </Button>
+                  )}
+
+                  {/* Copy / Move — shown when items are selected */}
+                  {selectedIds.size > 0 && (
+                    <>
+                      <Button appearance="subtle" size="small" icon={<Copy20Regular />}
+                        onClick={() => setCopyMoveMode("copy")} disabled={isBusy}>
+                        {t("dept.copy")}
+                      </Button>
+                      <Button appearance="subtle" size="small" icon={<ArrowMove20Regular />}
+                        onClick={() => setCopyMoveMode("move")} disabled={isBusy}>
+                        {t("dept.move")}
+                      </Button>
+                    </>
                   )}
 
                   {/* Upload — icon + label, always visible */}
@@ -753,7 +773,7 @@ export function DepartmentSection({
                     disabled={upload.isPending}
                     onClick={() => uploadInputRef.current?.click()}
                   >
-                    Importer
+                    {t("dept.upload")}
                   </Button>
                   <input
                     ref={uploadInputRef}
@@ -774,7 +794,7 @@ export function DepartmentSection({
 
               {/* ── File rows ── */}
               {displayItems.length === 0 ? (
-                <Text className={styles.empty}>Aucun document dans ce dossier.</Text>
+                <Text className={styles.empty}>{t("dept.empty")}</Text>
               ) : isSearching ? (
                 displayItems.map((item) => (
                   <SearchResultRow
@@ -805,6 +825,24 @@ export function DepartmentSection({
             </>
           )}
         </div>
+      )}
+
+      {copyMoveMode && (
+        <CopyMoveDialog
+          open={!!copyMoveMode}
+          onClose={() => setCopyMoveMode(null)}
+          mode={copyMoveMode}
+          selectedItems={displayItems.filter(i => selectedIds.has(i.id))}
+          sourceDriveId={driveId}
+          onConfirm={async (destDriveId, destFolderId) => {
+            if (copyMoveMode === "copy") {
+              await copyItems.mutateAsync({ itemIds: [...selectedIds], destDriveId, destFolderId });
+            } else {
+              await moveItems.mutateAsync({ itemIds: [...selectedIds], destDriveId, destFolderId });
+            }
+            setSelectedIds(new Set());
+          }}
+        />
       )}
     </div>
   );
