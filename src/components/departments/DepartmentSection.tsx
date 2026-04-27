@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   makeStyles,
   mergeClasses,
@@ -8,6 +8,8 @@ import {
   Badge,
   Spinner,
   Tooltip,
+  Checkbox,
+  Input,
 } from "@fluentui/react-components";
 import {
   FolderRegular,
@@ -16,8 +18,11 @@ import {
   ChevronRight20Regular,
   ArrowDownload20Regular,
   Open20Regular,
+  Delete20Regular,
+  ArrowUpload20Regular,
+  Rename20Regular,
 } from "@fluentui/react-icons";
-import { useDeptFiles, useDeptSearch } from "../../hooks/useDepartments";
+import { useDeptFiles, useDeptSearch, useDeptMutations } from "../../hooks/useDepartments";
 import { FileTypeIcon } from "../files/FileTypeIcon";
 import { formatFileSize } from "../../utils/fileSize";
 import { formatDate } from "../../utils/dateFormat";
@@ -59,6 +64,32 @@ const useStyles = makeStyles({
     whiteSpace: "nowrap",
   },
 
+  // ── File manager toolbar ──
+  toolbar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "2px",
+    padding: "3px 8px 3px 12px",
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
+    backgroundColor: tokens.colorNeutralBackground2,
+    minHeight: "34px",
+  },
+  toolbarSpacer: { flex: 1 },
+  selectionCount: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+    paddingLeft: "4px",
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+  },
+  actionError: {
+    padding: "6px 16px",
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorPaletteRedForeground1,
+    backgroundColor: tokens.colorPaletteRedBackground1,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
+  },
+
   // ── File / folder rows ──
   row: {
     display: "flex",
@@ -71,6 +102,11 @@ const useStyles = makeStyles({
     "&:hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
     "&:hover .actions": { opacity: 1 },
   },
+  rowSelected: {
+    backgroundColor: tokens.colorNeutralBackground3,
+    "&:hover": { backgroundColor: tokens.colorNeutralBackground3Hover },
+  },
+  checkboxCell: { width: "20px", flexShrink: 0 },
   chevronCell: { width: "20px", flexShrink: 0 },
   nameText: {
     flex: 1,
@@ -84,6 +120,12 @@ const useStyles = makeStyles({
   folderNameText: {
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorBrandForeground1,
+  },
+  renameInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: tokens.fontSizeBase300,
+    height: "26px",
   },
   metaSize: {
     width: "80px",
@@ -102,7 +144,7 @@ const useStyles = makeStyles({
     whiteSpace: "nowrap",
   },
   actions: {
-    width: "68px",
+    width: "88px",
     flexShrink: 0,
     display: "flex",
     gap: "2px",
@@ -111,7 +153,7 @@ const useStyles = makeStyles({
     transition: "opacity 0.15s ease",
   },
 
-  // ── Sub-folder children indent area ──
+  // ── Sub-folder loading ──
   subLoading: {
     display: "flex",
     alignItems: "center",
@@ -172,13 +214,11 @@ function highlightText(text: string, q: string, highlightClass: string) {
   );
 }
 
-/** Extract a readable path from parentReference.path, stripping the drive root prefix */
 function extractPath(item: DriveItem): string {
   const raw = item.parentReference?.path ?? "";
-  // Graph paths look like: /drives/xxx/root:/folder/subfolder
   const rootIdx = raw.indexOf("root:");
   if (rootIdx === -1) return "";
-  return raw.slice(rootIdx + 5); // everything after "root:"
+  return raw.slice(rootIdx + 5);
 }
 
 async function downloadItem(
@@ -205,9 +245,19 @@ async function downloadItem(
   }
 }
 
+function describeApiError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const axiosErr = err as { response?: { status?: number; data?: { error?: { message?: string } } } };
+  const status = axiosErr?.response?.status;
+  const spMsg = axiosErr?.response?.data?.error?.message ?? "";
+  if (status === 403 || status === 401)
+    return "Accès refusé — vous n'avez pas la permission d'effectuer cette action sur ce dossier SharePoint.";
+  if (spMsg) return `Erreur SharePoint : ${spMsg}`;
+  return `Erreur : ${msg}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DeptItemRow — recursive row for files and expandable sub-folders
-//   (used only in browse mode, not in search mode)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface RowProps {
@@ -215,11 +265,33 @@ interface RowProps {
   driveId: string;
   depth?: number;
   searchQuery?: string;
+  // Selection
+  isSelected: boolean;
+  onToggle: (id: string) => void;
+  getIsSelected: (id: string) => boolean;
+  // Inline rename
+  isRenaming: boolean;
+  onStartRename: (id: string) => void;
+  onRenameSubmit: (id: string, newName: string) => void;
+  onRenameCancel: () => void;
 }
 
-function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
+function DeptItemRow({
+  item,
+  driveId,
+  depth = 0,
+  searchQuery = "",
+  isSelected,
+  onToggle,
+  getIsSelected,
+  isRenaming,
+  onStartRename,
+  onRenameSubmit,
+  onRenameCancel,
+}: RowProps) {
   const styles = useStyles();
   const [expanded, setExpanded] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const { getToken } = useAuth();
   const isFolder = !!item.folder;
 
@@ -228,14 +300,14 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
     expanded && isFolder ? item.id : null
   );
 
-  const indent = 16 + depth * 20;
+  const indent = 8 + depth * 20;
 
-  const handleRowClick = () => {
-    if (isFolder) {
-      setExpanded((v) => !v);
-    } else {
-      window.open(item.webUrl, "_blank", "noopener,noreferrer");
-    }
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't navigate when clicking the checkbox or inside the rename input
+    if ((e.target as HTMLElement).closest("input")) return;
+    if (isRenaming) return;
+    if (isFolder) setExpanded((v) => !v);
+    else window.open(item.webUrl, "_blank", "noopener,noreferrer");
   };
 
   const q = searchQuery.trim().toLowerCase();
@@ -243,13 +315,23 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
   return (
     <>
       <div
-        className={styles.row}
+        className={mergeClasses(styles.row, isSelected && styles.rowSelected)}
         style={{ paddingLeft: `${indent}px` }}
         onClick={handleRowClick}
         role="row"
         aria-label={item.name}
-        title={isFolder ? "Cliquez pour développer" : "Cliquez pour ouvrir"}
+        aria-selected={isSelected}
       >
+        {/* Checkbox */}
+        <div className={styles.checkboxCell} onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={isSelected}
+            onChange={() => onToggle(item.id)}
+            aria-label={`Sélectionner ${item.name}`}
+          />
+        </div>
+
+        {/* Expand chevron (folders only) */}
         <div className={styles.chevronCell}>
           {isFolder ? (
             expanded ? (
@@ -262,12 +344,37 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
 
         <FileTypeIcon item={item} size={20} />
 
-        <Text
-          className={mergeClasses(styles.nameText, isFolder && styles.folderNameText)}
-          title={item.name}
-        >
-          {highlightText(item.name, q, styles.highlight)}
-        </Text>
+        {/* Name — or inline rename input */}
+        {isRenaming ? (
+          <Input
+            ref={renameInputRef}
+            className={styles.renameInput}
+            defaultValue={item.name}
+            autoFocus
+            size="small"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.stopPropagation();
+                onRenameSubmit(item.id, (e.target as HTMLInputElement).value);
+              } else if (e.key === "Escape") {
+                e.stopPropagation();
+                onRenameCancel();
+              }
+            }}
+            onBlur={(e) => {
+              // Submit on blur — clicking away saves the new name
+              onRenameSubmit(item.id, e.target.value);
+            }}
+          />
+        ) : (
+          <Text
+            className={mergeClasses(styles.nameText, isFolder && styles.folderNameText)}
+            title={item.name}
+          >
+            {highlightText(item.name, q, styles.highlight)}
+          </Text>
+        )}
 
         <Text className={styles.metaSize}>
           {isFolder ? `${item.folder!.childCount} élém.` : formatFileSize(item.size)}
@@ -276,27 +383,48 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
         <Text className={styles.metaDate}>{formatDate(item.lastModifiedDateTime)}</Text>
 
         <div className={mergeClasses(styles.actions, "actions")}>
+          {/* Rename */}
+          <Tooltip content="Renommer" relationship="label">
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<Rename20Regular />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartRename(item.id);
+              }}
+            />
+          </Tooltip>
+          {/* Download (files only) */}
           {!isFolder && (
             <Tooltip content="Télécharger" relationship="label">
               <Button
                 appearance="subtle"
                 size="small"
                 icon={<ArrowDownload20Regular />}
-                onClick={(e) => { e.stopPropagation(); downloadItem(item, driveId, getToken); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadItem(item, driveId, getToken);
+                }}
               />
             </Tooltip>
           )}
+          {/* Open */}
           <Tooltip content={isFolder ? "Ouvrir dans SharePoint" : "Ouvrir"} relationship="label">
             <Button
               appearance="subtle"
               size="small"
               icon={<Open20Regular />}
-              onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank", "noopener,noreferrer"); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(item.webUrl, "_blank", "noopener,noreferrer");
+              }}
             />
           </Tooltip>
         </div>
       </div>
 
+      {/* Expanded children */}
       {isFolder && expanded && (
         childrenLoading ? (
           <div className={styles.subLoading} style={{ paddingLeft: `${indent + 20}px` }}>
@@ -313,6 +441,13 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
               driveId={driveId}
               depth={depth + 1}
               searchQuery={searchQuery}
+              isSelected={getIsSelected(child.id)}
+              onToggle={onToggle}
+              getIsSelected={getIsSelected}
+              isRenaming={false}
+              onStartRename={onStartRename}
+              onRenameSubmit={onRenameSubmit}
+              onRenameCancel={onRenameCancel}
             />
           ))
         )
@@ -323,7 +458,6 @@ function DeptItemRow({ item, driveId, depth = 0, searchQuery = "" }: RowProps) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SearchResultRow — flat row used when a search query is active
-//   Shows the file path below the name so the user knows where it lives
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface SearchRowProps {
@@ -346,6 +480,7 @@ function SearchResultRow({ item, driveId, searchQuery }: SearchRowProps) {
       aria-label={item.name}
       title="Cliquez pour ouvrir"
     >
+      <div className={styles.checkboxCell} />
       <div className={styles.chevronCell} />
 
       <FileTypeIcon item={item} size={20} />
@@ -403,7 +538,6 @@ interface Props {
   driveId: string;
   searchQuery?: string;
   defaultOpen?: boolean;
-  /** When true the card header is hidden and content is always visible (no second toggle) */
   hideHeader?: boolean;
 }
 
@@ -417,10 +551,14 @@ export function DepartmentSection({
   const styles = useStyles();
   const [open, setOpen] = useState(defaultOpen);
 
+  // ── File management state ──
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
   const q = searchQuery.trim();
   const isSearching = q.length >= 2;
-
-  // hideHeader means always open — no state needed
   const effectiveOpen = hideHeader ? true : open;
 
   // ── Browse mode: load direct children ──
@@ -429,17 +567,21 @@ export function DepartmentSection({
     !isSearching && effectiveOpen ? folder.id : null
   );
 
-  // ── Search mode: Graph full-text search within this department subtree ──
+  // ── Search mode: Graph full-text search ──
   const { data: searchResults, isLoading: searchLoading } = useDeptSearch(
     driveId,
     folder.id,
     q
   );
 
-  // When searching, always open the section to show results
+  // ── CRUD mutations ──
+  const { deleteItems, rename, upload, isBusy } = useDeptMutations(
+    isSearching ? null : driveId,
+    isSearching ? null : folder.id
+  );
+
   const isOpen = isSearching ? true : effectiveOpen;
 
-  // In search mode, hide section if query is long enough and no results came back yet-or-empty
   if (isSearching && !searchLoading && (searchResults ?? []).length === 0) return null;
 
   const isLoading = isSearching ? searchLoading : browseLoading;
@@ -448,11 +590,93 @@ export function DepartmentSection({
     ? ((browseError as { message?: string })?.message ?? String(browseError))
     : null;
 
+  // ── Selection helpers ──
+  const getIsSelected = useCallback(
+    (id: string) => selectedIds.has(id),
+    [selectedIds]
+  );
+
+  const handleToggle = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const topLevelIds = displayItems.map((i) => i.id);
+  const allChecked = topLevelIds.length > 0 && topLevelIds.every((id) => selectedIds.has(id));
+  const someChecked = !allChecked && topLevelIds.some((id) => selectedIds.has(id));
+
+  const handleSelectAll = () => setSelectedIds(new Set(topLevelIds));
+  const handleDeselectAll = () => setSelectedIds(new Set());
+
+  // ── Actions ──
+  const clearError = () => setActionError("");
+
+  const handleDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Supprimer ${count} élément${count > 1 ? "s" : ""} ? Cette action est irréversible.`)) return;
+    clearError();
+    try {
+      await deleteItems.mutateAsync([...selectedIds]);
+      setSelectedIds(new Set());
+    } catch (err) {
+      setActionError(describeApiError(err));
+    }
+  };
+
+  const handleStartRename = useCallback((id: string) => {
+    setRenamingId(id);
+    // Also select the item so the user sees which one is being renamed
+    setSelectedIds(new Set([id]));
+  }, []);
+
+  const handleRenameSubmit = useCallback(async (id: string, newName: string) => {
+    const trimmed = newName.trim();
+    setRenamingId(null);
+    if (!trimmed) return;
+    clearError();
+    try {
+      await rename.mutateAsync({ itemId: id, newName: trimmed });
+    } catch (err) {
+      setActionError(describeApiError(err));
+    }
+  }, [rename]);
+
+  const handleRenameCancel = useCallback(() => {
+    setRenamingId(null);
+  }, []);
+
+  const handleUpload = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    clearError();
+    // Upload files one at a time (sequential mutations)
+    const fileArray = Array.from(files);
+    const uploadNext = (index: number) => {
+      if (index >= fileArray.length) return;
+      upload.mutate(
+        { file: fileArray[index] },
+        {
+          onSuccess: () => uploadNext(index + 1),
+          onError: (err) => setActionError(describeApiError(err)),
+        }
+      );
+    };
+    uploadNext(0);
+    // Reset the input so the same file can be re-uploaded if needed
+    if (uploadInputRef.current) uploadInputRef.current.value = "";
+  };
+
   return (
     <div className={styles.section}>
-      {/* Header — omitted when hideHeader is true */}
+      {/* ── Card header (collapsible) ── */}
       {!hideHeader && (
-        <div className={styles.header} onClick={() => { if (!isSearching) setOpen((v) => !v); }}>
+        <div
+          className={styles.header}
+          onClick={() => { if (!isSearching) setOpen((v) => !v); }}
+        >
           {isOpen ? (
             <ChevronDown20Regular className={styles.chevronIcon} />
           ) : (
@@ -472,7 +696,7 @@ export function DepartmentSection({
         </div>
       )}
 
-      {/* Body */}
+      {/* ── Body ── */}
       {isOpen && (
         <div>
           {isLoading ? (
@@ -486,29 +710,111 @@ export function DepartmentSection({
             <Text className={styles.empty} style={{ color: tokens.colorPaletteRedForeground1 }}>
               ⚠️ Erreur : {browseErrorMsg}
             </Text>
-          ) : displayItems.length === 0 ? (
-            <Text className={styles.empty}>Aucun document dans ce dossier.</Text>
-          ) : isSearching ? (
-            // Search mode: flat list with path hints
-            displayItems.map((item) => (
-              <SearchResultRow
-                key={item.id}
-                item={item}
-                driveId={driveId}
-                searchQuery={q}
-              />
-            ))
           ) : (
-            // Browse mode: recursive expandable rows
-            displayItems.map((item) => (
-              <DeptItemRow
-                key={item.id}
-                item={item}
-                driveId={driveId}
-                depth={0}
-                searchQuery=""
-              />
-            ))
+            <>
+              {/* ── File manager toolbar (browse mode only) ── */}
+              {!isSearching && (
+                <div className={styles.toolbar}>
+                  {/* Select-all checkbox */}
+                  <Checkbox
+                    checked={allChecked ? true : someChecked ? "mixed" : false}
+                    onChange={(_, d) => { if (d.checked) handleSelectAll(); else handleDeselectAll(); }}
+                    disabled={displayItems.length === 0 || isBusy}
+                    aria-label="Tout sélectionner"
+                  />
+                  {selectedIds.size > 0 && (
+                    <Text className={styles.selectionCount}>
+                      {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
+                    </Text>
+                  )}
+
+                  <div className={styles.toolbarSpacer} />
+
+                  {/* Delete selected */}
+                  {selectedIds.size > 0 && (
+                    <Tooltip content="Supprimer la sélection" relationship="label">
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={<Delete20Regular />}
+                        style={{ color: tokens.colorPaletteRedForeground1 }}
+                        disabled={deleteItems.isPending}
+                        onClick={handleDelete}
+                      />
+                    </Tooltip>
+                  )}
+
+                  {/* Rename single selected item */}
+                  {selectedIds.size === 1 && renamingId === null && (
+                    <Tooltip content="Renommer" relationship="label">
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={<Rename20Regular />}
+                        disabled={rename.isPending}
+                        onClick={() => handleStartRename([...selectedIds][0])}
+                      />
+                    </Tooltip>
+                  )}
+
+                  {/* Upload */}
+                  <Tooltip content="Importer des fichiers dans ce dossier" relationship="label">
+                    <Button
+                      appearance="subtle"
+                      size="small"
+                      icon={upload.isPending ? <Spinner size="tiny" /> : <ArrowUpload20Regular />}
+                      disabled={upload.isPending}
+                      onClick={() => uploadInputRef.current?.click()}
+                    />
+                  </Tooltip>
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    multiple
+                    style={{ display: "none" }}
+                    onChange={(e) => handleUpload(e.target.files)}
+                  />
+                </div>
+              )}
+
+              {/* ── Inline action error ── */}
+              {actionError && (
+                <Text className={styles.actionError}>
+                  ⚠️ {actionError}
+                </Text>
+              )}
+
+              {/* ── File rows ── */}
+              {displayItems.length === 0 ? (
+                <Text className={styles.empty}>Aucun document dans ce dossier.</Text>
+              ) : isSearching ? (
+                displayItems.map((item) => (
+                  <SearchResultRow
+                    key={item.id}
+                    item={item}
+                    driveId={driveId}
+                    searchQuery={q}
+                  />
+                ))
+              ) : (
+                displayItems.map((item) => (
+                  <DeptItemRow
+                    key={item.id}
+                    item={item}
+                    driveId={driveId}
+                    depth={0}
+                    searchQuery=""
+                    isSelected={selectedIds.has(item.id)}
+                    onToggle={handleToggle}
+                    getIsSelected={getIsSelected}
+                    isRenaming={renamingId === item.id}
+                    onStartRename={handleStartRename}
+                    onRenameSubmit={handleRenameSubmit}
+                    onRenameCancel={handleRenameCancel}
+                  />
+                ))
+              )}
+            </>
           )}
         </div>
       )}

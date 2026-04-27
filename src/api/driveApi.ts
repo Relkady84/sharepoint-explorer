@@ -80,6 +80,31 @@ export async function searchInFolder(
   return res.data.value;
 }
 
+/** Delete a drive item (file or folder). Throws on permission error. */
+export async function deleteItem(
+  token: string,
+  driveId: string,
+  itemId: string
+): Promise<void> {
+  const client = createGraphClient(token);
+  await client.delete(`/drives/${driveId}/items/${itemId}`);
+}
+
+/** Rename a drive item. Returns the updated item. */
+export async function renameItem(
+  token: string,
+  driveId: string,
+  itemId: string,
+  newName: string
+): Promise<DriveItem> {
+  const client = createGraphClient(token);
+  const res = await client.patch<DriveItem>(
+    `/drives/${driveId}/items/${itemId}`,
+    { name: newName }
+  );
+  return res.data;
+}
+
 /** Get root-level folders for a specific drive (for the folder tree) */
 export async function listRootFolders(
   token: string,
