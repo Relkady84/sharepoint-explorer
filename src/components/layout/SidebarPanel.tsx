@@ -158,12 +158,6 @@ export function SidebarPanel() {
     setMobileSidebarOpen(false);
   };
 
-  // The TabList ignores a selectedValue that has no matching child.
-  // When activeView is "settings", none of the sidebar tabs should look selected,
-  // so we pass undefined in that case.
-  const sidebarSelected =
-    activeView === "settings" ? undefined : (activeView as string);
-
   return (
     <div
       className={mergeClasses(
@@ -180,7 +174,7 @@ export function SidebarPanel() {
           <div
             role="button"
             tabIndex={0}
-            aria-current={activeView === "explorer" ? "page" : undefined}
+            aria-pressed={activeView === "explorer"}
             className={mergeClasses(
               styles.navItem,
               activeView === "explorer" && styles.navItemActive
@@ -206,7 +200,7 @@ export function SidebarPanel() {
         <div
           role="button"
           tabIndex={0}
-          aria-current={activeView === "departments" ? "page" : undefined}
+          aria-pressed={activeView === "departments"}
           className={mergeClasses(
             styles.navItem,
             activeView === "departments" && styles.navItemActive
@@ -232,7 +226,7 @@ export function SidebarPanel() {
           <div
             role="button"
             tabIndex={0}
-            aria-current={activeView === "onedrive" ? "page" : undefined}
+            aria-pressed={activeView === "onedrive"}
             className={mergeClasses(
               styles.navItem,
               activeView === "onedrive" && styles.navItemActive
