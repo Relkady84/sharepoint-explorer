@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   makeStyles,
   mergeClasses,
@@ -5,8 +6,14 @@ import {
   Text,
   Button,
   Tooltip,
+  Checkbox,
+  Input,
 } from "@fluentui/react-components";
-import { ArrowDownload20Regular, Open20Regular } from "@fluentui/react-icons";
+import {
+  ArrowDownload20Regular,
+  Open20Regular,
+  Rename20Regular,
+} from "@fluentui/react-icons";
 import { FileTypeIcon } from "./FileTypeIcon";
 import { formatFileSize } from "../../utils/fileSize";
 import { formatDate } from "../../utils/dateFormat";
@@ -15,43 +22,46 @@ import { getItemWithDownloadUrl } from "../../api/driveApi";
 import { useAuth } from "../../auth/useAuth";
 import type { DriveItem } from "../../types/graph";
 
+// Grid: checkbox | icon | name | size | date | actions
+const GRID = "20px 32px 1fr 100px 140px 80px";
+const GRID_MOBILE = "20px 24px 1fr 92px 60px";
+
 const useStyles = makeStyles({
   row: {
     display: "grid",
-    gridTemplateColumns: "32px 1fr 100px 140px 72px",
+    gridTemplateColumns: GRID,
     alignItems: "center",
     gap: "8px",
-    padding: "8px 16px",
-    borderRadius: tokens.borderRadiusMedium,
+    padding: "7px 16px",
     cursor: "pointer",
     transition: "background-color 0.1s ease",
-    "&:hover": {
-      backgroundColor: tokens.colorNeutralBackground1Hover,
-    },
-    "&:hover .actions": {
-      opacity: 1,
-    },
-    // Touch devices have no hover — show actions always
-    "@media (hover: none)": {
-      "& .actions": { opacity: 1 },
-    },
-    // Mobile: drop the size column, narrow the date and actions
+    "&:hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
+    "&:hover .actions": { opacity: 1 },
+    "@media (hover: none)": { "& .actions": { opacity: 1 } },
     "@media (max-width: 600px)": {
-      gridTemplateColumns: "28px 1fr 92px 56px",
+      gridTemplateColumns: GRID_MOBILE,
       gap: "6px",
       padding: "8px 12px",
     },
   },
+  rowSelected: {
+    backgroundColor: tokens.colorNeutralBackground3,
+    "&:hover": { backgroundColor: tokens.colorNeutralBackground3Hover },
+  },
+  checkboxCell: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sizeCell: {
-    "@media (max-width: 600px)": {
-      display: "none",
-    },
+    "@media (max-width: 600px)": { display: "none" },
   },
   nameCell: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "0px",
     overflow: "hidden",
+    minWidth: 0,
   },
   name: {
     fontSize: tokens.fontSizeBase300,
@@ -65,6 +75,12 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorBrandForeground1,
   },
+  renameInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: tokens.fontSizeBase300,
+    height: "26px",
+  },
   meta: {
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
@@ -72,32 +88,47 @@ const useStyles = makeStyles({
   },
   actions: {
     display: "flex",
-    gap: "4px",
+    gap: "2px",
     justifyContent: "flex-end",
     opacity: 0,
     transition: "opacity 0.15s ease",
   },
 });
 
+export const FILE_LIST_GRID = GRID;
+export const FILE_LIST_GRID_MOBILE = GRID_MOBILE;
+
 interface FileListItemProps {
   item: DriveItem;
+  isSelected?: boolean;
+  onToggle?: (id: string) => void;
+  isRenaming?: boolean;
+  onStartRename?: (id: string) => void;
+  onRenameSubmit?: (id: string, newName: string) => void;
+  onRenameCancel?: () => void;
 }
 
-export function FileListItem({ item }: FileListItemProps) {
+export function FileListItem({
+  item,
+  isSelected = false,
+  onToggle,
+  isRenaming = false,
+  onStartRename,
+  onRenameSubmit,
+  onRenameCancel,
+}: FileListItemProps) {
   const styles = useStyles();
   const { navigateTo } = useNavigationStore();
   const { getToken } = useAuth();
   const isFolder = !!item.folder;
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("input")) return;
+    if (isRenaming) return;
     if (isFolder) {
-      navigateTo({
-        id: item.id,
-        name: item.name,
-        driveId: item.parentReference.driveId,
-      });
+      navigateTo({ id: item.id, name: item.name, driveId: item.parentReference.driveId });
     } else {
-      // Opens in Office Online for Office files, SharePoint viewer for all others
       window.open(item.webUrl, "_blank", "noopener,noreferrer");
     }
   };
@@ -108,68 +139,102 @@ export function FileListItem({ item }: FileListItemProps) {
       let url = item["@microsoft.graph.downloadUrl"];
       if (!url) {
         const token = await getToken();
-        const full = await getItemWithDownloadUrl(
-          token,
-          item.parentReference.driveId,
-          item.id
-        );
+        const full = await getItemWithDownloadUrl(token, item.parentReference.driveId, item.id);
         url = full["@microsoft.graph.downloadUrl"];
       }
       if (!url) return;
       const a = document.createElement("a");
-      a.href = url;
-      a.download = item.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error("Download failed:", err);
-    }
-  };
-
-  const handleOpenInSharePoint = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    window.open(item.webUrl, "_blank", "noopener,noreferrer");
+      a.href = url; a.download = item.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch (err) { console.error("Download failed:", err); }
   };
 
   return (
-    <div className={styles.row} onClick={handleClick} role="row" aria-label={item.name}>
-      <FileTypeIcon item={item} size={20} />
-
-      <div className={styles.nameCell}>
-        <Text
-          className={mergeClasses(styles.name, isFolder && styles.folderName)}
-          title={item.name}
-        >
-          {item.name}
-        </Text>
+    <div
+      className={mergeClasses(styles.row, isSelected && styles.rowSelected)}
+      onClick={handleClick}
+      role="row"
+      aria-label={item.name}
+      aria-selected={isSelected}
+    >
+      {/* Checkbox */}
+      <div className={styles.checkboxCell} onClick={(e) => e.stopPropagation()}>
+        {onToggle && (
+          <Checkbox
+            checked={isSelected}
+            onChange={() => onToggle(item.id)}
+            aria-label={`Sélectionner ${item.name}`}
+          />
+        )}
       </div>
 
+      {/* Icon */}
+      <FileTypeIcon item={item} size={20} />
+
+      {/* Name or inline rename */}
+      <div className={styles.nameCell}>
+        {isRenaming ? (
+          <Input
+            ref={renameInputRef}
+            className={styles.renameInput}
+            defaultValue={item.name}
+            autoFocus
+            size="small"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.stopPropagation();
+                onRenameSubmit?.(item.id, (e.target as HTMLInputElement).value);
+              } else if (e.key === "Escape") {
+                e.stopPropagation();
+                onRenameCancel?.();
+              }
+            }}
+            onBlur={(e) => onRenameSubmit?.(item.id, e.target.value)}
+          />
+        ) : (
+          <Text
+            className={mergeClasses(styles.name, isFolder && styles.folderName)}
+            title={item.name}
+          >
+            {item.name}
+          </Text>
+        )}
+      </div>
+
+      {/* Size */}
       <Text className={mergeClasses(styles.meta, styles.sizeCell)}>
-        {isFolder
-          ? `${item.folder!.childCount} items`
-          : formatFileSize(item.size)}
+        {isFolder ? `${item.folder!.childCount} élém.` : formatFileSize(item.size)}
       </Text>
 
+      {/* Modified */}
       <Text className={styles.meta}>{formatDate(item.lastModifiedDateTime)}</Text>
 
+      {/* Hover actions */}
       <div className={mergeClasses(styles.actions, "actions")}>
-        {!isFolder && (
-          <Tooltip content="Download" relationship="label">
+        {onStartRename && (
+          <Tooltip content="Renommer" relationship="label">
             <Button
-              appearance="subtle"
-              size="small"
+              appearance="subtle" size="small"
+              icon={<Rename20Regular />}
+              onClick={(e) => { e.stopPropagation(); onStartRename(item.id); }}
+            />
+          </Tooltip>
+        )}
+        {!isFolder && (
+          <Tooltip content="Télécharger" relationship="label">
+            <Button
+              appearance="subtle" size="small"
               icon={<ArrowDownload20Regular />}
               onClick={handleDownload}
             />
           </Tooltip>
         )}
-        <Tooltip content="Open in SharePoint" relationship="label">
+        <Tooltip content={isFolder ? "Ouvrir dans SharePoint" : "Ouvrir"} relationship="label">
           <Button
-            appearance="subtle"
-            size="small"
+            appearance="subtle" size="small"
             icon={<Open20Regular />}
-            onClick={handleOpenInSharePoint}
+            onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank", "noopener,noreferrer"); }}
           />
         </Tooltip>
       </div>
