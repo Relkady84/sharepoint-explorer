@@ -74,14 +74,6 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground2,
     minHeight: "34px",
   },
-  toolbarSpacer: { flex: 1 },
-  selectionCount: {
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
-    paddingLeft: "4px",
-    flexShrink: 0,
-    whiteSpace: "nowrap",
-  },
   actionError: {
     padding: "6px 16px",
     fontSize: tokens.fontSizeBase200,
@@ -722,21 +714,17 @@ export function DepartmentSection({
                     disabled={displayItems.length === 0 || isBusy}
                     aria-label="Tout sélectionner"
                   />
-                  {selectedIds.size > 0 && (
-                    <Text className={styles.selectionCount}>
-                      {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
-                    </Text>
-                  )}
 
-                  <div className={styles.toolbarSpacer} />
-
-                  {/* Delete selected */}
+                  {/* Delete — icon only, shown when items are selected */}
                   {selectedIds.size > 0 && (
-                    <Tooltip content="Supprimer la sélection" relationship="label">
+                    <Tooltip
+                      content={`Supprimer ${selectedIds.size} élément${selectedIds.size > 1 ? "s" : ""}`}
+                      relationship="label"
+                    >
                       <Button
                         appearance="subtle"
                         size="small"
-                        icon={<Delete20Regular />}
+                        icon={deleteItems.isPending ? <Spinner size="tiny" /> : <Delete20Regular />}
                         style={{ color: tokens.colorPaletteRedForeground1 }}
                         disabled={deleteItems.isPending}
                         onClick={handleDelete}
@@ -744,29 +732,29 @@ export function DepartmentSection({
                     </Tooltip>
                   )}
 
-                  {/* Rename single selected item */}
+                  {/* Rename — icon + label, shown when exactly 1 item selected */}
                   {selectedIds.size === 1 && renamingId === null && (
-                    <Tooltip content="Renommer" relationship="label">
-                      <Button
-                        appearance="subtle"
-                        size="small"
-                        icon={<Rename20Regular />}
-                        disabled={rename.isPending}
-                        onClick={() => handleStartRename([...selectedIds][0])}
-                      />
-                    </Tooltip>
-                  )}
-
-                  {/* Upload */}
-                  <Tooltip content="Importer des fichiers dans ce dossier" relationship="label">
                     <Button
                       appearance="subtle"
                       size="small"
-                      icon={upload.isPending ? <Spinner size="tiny" /> : <ArrowUpload20Regular />}
-                      disabled={upload.isPending}
-                      onClick={() => uploadInputRef.current?.click()}
-                    />
-                  </Tooltip>
+                      icon={<Rename20Regular />}
+                      disabled={rename.isPending}
+                      onClick={() => handleStartRename([...selectedIds][0])}
+                    >
+                      Renommer
+                    </Button>
+                  )}
+
+                  {/* Upload — icon + label, always visible */}
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    icon={upload.isPending ? <Spinner size="tiny" /> : <ArrowUpload20Regular />}
+                    disabled={upload.isPending}
+                    onClick={() => uploadInputRef.current?.click()}
+                  >
+                    Importer
+                  </Button>
                   <input
                     ref={uploadInputRef}
                     type="file"
