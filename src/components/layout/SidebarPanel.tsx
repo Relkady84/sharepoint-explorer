@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { makeStyles, tokens, mergeClasses, TabList, Tab } from "@fluentui/react-components";
+import { makeStyles, tokens, mergeClasses, Text } from "@fluentui/react-components";
 import { FolderRegular, BuildingRegular, Cloud24Filled } from "@fluentui/react-icons";
 import { SiteSelector } from "../navigation/SiteSelector";
 import { FolderTree } from "../navigation/FolderTree";
@@ -36,23 +36,84 @@ const useStyles = makeStyles({
       transform: "translateX(0)",
     },
   },
-  // Desktop only: collapsed = hidden entirely, freeing all the room for content
   sidebarCollapsedDesktop: {
     "@media (min-width: 769px)": {
       display: "none",
     },
   },
-  tabs: {
-    // Vertical tab list — each nav item is a full-width row, text never clips
-    padding: "4px 0",
+
+  // ── Navigation card section ───────────────────────────────────────────────
+  navSection: {
+    padding: "10px 10px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     flexShrink: 0,
   },
-  tab: {
-    // Fill the sidebar width and keep text from wrapping
-    width: "100%",
-    fontSize: tokens.fontSizeBase300,
+  navLabel: {
+    fontSize: tokens.fontSizeBase100,
+    fontWeight: tokens.fontWeightSemibold,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: tokens.colorNeutralForeground3,
+    paddingLeft: "4px",
+    marginBottom: "2px",
   },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "9px 12px",
+    borderRadius: tokens.borderRadiusMedium,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    cursor: "pointer",
+    userSelect: "none",
+    backgroundColor: tokens.colorNeutralBackground1,
+    transition: "background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease",
+    ":hover": {
+      backgroundColor: tokens.colorNeutralBackground3,
+      borderColor: tokens.colorNeutralStroke1Hover,
+      boxShadow: tokens.shadow4,
+    },
+    ":focus-visible": {
+      outline: `2px solid ${tokens.colorBrandForeground1}`,
+      outlineOffset: "1px",
+    },
+  },
+  navItemActive: {
+    backgroundColor: tokens.colorBrandBackground2,
+    borderColor: tokens.colorBrandStroke1,
+    ":hover": {
+      backgroundColor: tokens.colorBrandBackground2Hover,
+      borderColor: tokens.colorBrandStroke1,
+      boxShadow: tokens.shadow4,
+    },
+  },
+  navIcon: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "20px",
+    height: "20px",
+    flexShrink: 0,
+    color: tokens.colorNeutralForeground2,
+  },
+  navIconActive: {
+    color: tokens.colorBrandForeground1,
+  },
+  navItemLabel: {
+    flex: 1,
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightRegular,
+    color: tokens.colorNeutralForeground1,
+    lineHeight: "1",
+  },
+  navItemLabelActive: {
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorBrandForeground1,
+  },
+
   scrollArea: {
     flex: 1,
     minHeight: 0,
@@ -111,34 +172,92 @@ export function SidebarPanel() {
         !desktopSidebarOpen && styles.sidebarCollapsedDesktop
       )}
     >
-      {/* View switcher */}
-      <div className={styles.tabs}>
-        <TabList
-          size="small"
-          vertical
-          selectedValue={sidebarSelected}
-          onTabSelect={(_, d) => handleTabSelect(d.value as AppView)}
-          style={{ width: "100%" }}
-        >
-          {showExplorer && (
-            <Tab value="explorer" icon={<FolderRegular />} className={styles.tab}>
+      {/* View switcher — card-style navigation items */}
+      <nav className={styles.navSection} aria-label="Navigation">
+        <Text className={styles.navLabel}>Navigation</Text>
+
+        {showExplorer && (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-current={activeView === "explorer" ? "page" : undefined}
+            className={mergeClasses(
+              styles.navItem,
+              activeView === "explorer" && styles.navItemActive
+            )}
+            onClick={() => handleTabSelect("explorer")}
+            onKeyDown={(e) => e.key === "Enter" && handleTabSelect("explorer")}
+          >
+            <span className={mergeClasses(
+              styles.navIcon,
+              activeView === "explorer" && styles.navIconActive
+            )}>
+              <FolderRegular fontSize={20} />
+            </span>
+            <Text className={mergeClasses(
+              styles.navItemLabel,
+              activeView === "explorer" && styles.navItemLabelActive
+            )}>
               {t("nav.explorer")}
-            </Tab>
+            </Text>
+          </div>
+        )}
+
+        <div
+          role="button"
+          tabIndex={0}
+          aria-current={activeView === "departments" ? "page" : undefined}
+          className={mergeClasses(
+            styles.navItem,
+            activeView === "departments" && styles.navItemActive
           )}
-          <Tab value="departments" icon={<BuildingRegular />} className={styles.tab}>
+          onClick={() => handleTabSelect("departments")}
+          onKeyDown={(e) => e.key === "Enter" && handleTabSelect("departments")}
+        >
+          <span className={mergeClasses(
+            styles.navIcon,
+            activeView === "departments" && styles.navIconActive
+          )}>
+            <BuildingRegular fontSize={20} />
+          </span>
+          <Text className={mergeClasses(
+            styles.navItemLabel,
+            activeView === "departments" && styles.navItemLabelActive
+          )}>
             {t("nav.shortcuts")}
-          </Tab>
-          {showOneDrive && (
-            <Tab
-              value="onedrive"
-              icon={<Cloud24Filled style={{ color: "#0364B8" }} />}
-              className={styles.tab}
-            >
+          </Text>
+        </div>
+
+        {showOneDrive && (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-current={activeView === "onedrive" ? "page" : undefined}
+            className={mergeClasses(
+              styles.navItem,
+              activeView === "onedrive" && styles.navItemActive
+            )}
+            onClick={() => handleTabSelect("onedrive")}
+            onKeyDown={(e) => e.key === "Enter" && handleTabSelect("onedrive")}
+          >
+            <span className={mergeClasses(
+              styles.navIcon,
+              activeView === "onedrive" && styles.navIconActive
+            )}>
+              <Cloud24Filled
+                fontSize={20}
+                style={{ color: activeView === "onedrive" ? tokens.colorBrandForeground1 : "#0364B8" }}
+              />
+            </span>
+            <Text className={mergeClasses(
+              styles.navItemLabel,
+              activeView === "onedrive" && styles.navItemLabelActive
+            )}>
               {t("nav.onedrive")}
-            </Tab>
-          )}
-        </TabList>
-      </div>
+            </Text>
+          </div>
+        )}
+      </nav>
 
       {/* Scrollable middle: site picker + (in explorer) folder tree.
           Hidden on OneDrive/Settings views since those don't depend on a SharePoint site. */}
