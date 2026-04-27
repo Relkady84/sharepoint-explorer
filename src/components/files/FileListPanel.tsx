@@ -18,6 +18,7 @@ import {
 import { useDriveItems, useExplorerMutations } from "../../hooks/useDriveItems";
 import { useSearch } from "../../hooks/useSearch";
 import { useNavigationStore } from "../../store/navigationStore";
+import { useTranslation } from "../../i18n/useTranslation";
 import { BreadcrumbNav } from "../navigation/BreadcrumbNav";
 import { FileListItem, FILE_LIST_GRID, FILE_LIST_GRID_MOBILE } from "./FileListItem";
 import { FileToolbar } from "./FileToolbar";
@@ -141,6 +142,7 @@ function describeError(err: unknown): string {
 
 export function FileListPanel() {
   const styles = useStyles();
+  const { t } = useTranslation();
   const { siteId, driveId, currentItemId, searchQuery } = useNavigationStore();
 
   // ── Data ──
@@ -197,7 +199,7 @@ export function FileListPanel() {
   const handleDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
-    if (!confirm(`Supprimer ${count} élément${count > 1 ? "s" : ""} ? Cette action est irréversible.`)) return;
+    if (!confirm(t("explorer.deleteConfirm").replace("{count}", String(count)))) return;
     setActionError("");
     try {
       await mutations.deleteItems.mutateAsync([...selectedIds]);
@@ -233,8 +235,8 @@ export function FileListPanel() {
       <div className={styles.root}>
         <div className={styles.noSite}>
           <FolderOpenRegular style={{ fontSize: 64, opacity: 0.3 }} />
-          <Text size={400} weight="semibold">Aucun site sélectionné</Text>
-          <Text size={300}>Choisissez un site SharePoint dans la liste déroulante.</Text>
+          <Text size={400} weight="semibold">{t("explorer.noSite")}</Text>
+          <Text size={300}>{t("explorer.noSiteHint")}</Text>
         </div>
       </div>
     );
@@ -262,8 +264,10 @@ export function FileListPanel() {
       {isSearchMode && (
         <div className={styles.searchBadge}>
           {isSearching
-            ? "Recherche en cours…"
-            : `${searchResults?.length ?? 0} résultat${(searchResults?.length ?? 0) !== 1 ? "s" : ""} pour "${searchQuery}"`}
+            ? t("explorer.searching")
+            : t("explorer.searchResults")
+                .replace("{count}", String(searchResults?.length ?? 0))
+                .replace("{query}", searchQuery)}
         </div>
       )}
 
@@ -276,9 +280,9 @@ export function FileListPanel() {
       <div className={styles.header}>
         <span />
         <span />
-        <span className={styles.headerCell}>Nom</span>
-        <span className={`${styles.headerRight} ${styles.sizeHeaderCell}`}>Taille</span>
-        <span className={styles.headerRight}>Modifié</span>
+        <span className={styles.headerCell}>{t("explorer.colName")}</span>
+        <span className={`${styles.headerRight} ${styles.sizeHeaderCell}`}>{t("explorer.colSize")}</span>
+        <span className={styles.headerRight}>{t("explorer.colModified")}</span>
         <span />
       </div>
 
@@ -293,7 +297,7 @@ export function FileListPanel() {
                 ref={newFolderInputRef}
                 className={styles.newFolderInput}
                 size="small"
-                placeholder="Nom du dossier…"
+                placeholder={t("dept.newFolderPlaceholder")}
                 value={newFolderName}
                 onChange={(_, d) => setNewFolderName(d.value)}
                 onKeyDown={(e) => {
@@ -323,20 +327,20 @@ export function FileListPanel() {
           ) : isError ? (
             <div className={styles.empty}>
               <Text className={styles.emptyText} style={{ color: tokens.colorPaletteRedForeground1 }}>
-                Échec du chargement
+                {t("explorer.loadError")}
               </Text>
-              <Text className={styles.emptySubtext}>Vérifiez vos permissions ou actualisez la page.</Text>
+              <Text className={styles.emptySubtext}>{t("explorer.loadErrorHint")}</Text>
             </div>
           ) : displayItems.length === 0 ? (
             <div className={styles.empty}>
               <FolderOpenRegular className={styles.emptyIcon} />
               <Text className={styles.emptyText}>
-                {isSearchMode ? "Aucun résultat" : "Ce dossier est vide"}
+                {isSearchMode ? t("explorer.noResults") : t("explorer.emptyFolder")}
               </Text>
               <Text className={styles.emptySubtext}>
                 {isSearchMode
-                  ? `Aucun fichier ne correspond à "${searchQuery}"`
-                  : "Glissez-déposez des fichiers ici, ou cliquez sur Importer."}
+                  ? t("explorer.noResultsHint").replace("{query}", searchQuery)
+                  : t("explorer.emptyFolderHint")}
               </Text>
             </div>
           ) : (

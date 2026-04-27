@@ -20,6 +20,7 @@ import { formatDate } from "../../utils/dateFormat";
 import { useNavigationStore } from "../../store/navigationStore";
 import { getItemWithDownloadUrl } from "../../api/driveApi";
 import { useAuth } from "../../auth/useAuth";
+import { useTranslation } from "../../i18n/useTranslation";
 import type { DriveItem } from "../../types/graph";
 
 // Grid: checkbox | icon | name | size | date | actions
@@ -118,6 +119,7 @@ export function FileListItem({
   onRenameCancel,
 }: FileListItemProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const { navigateTo } = useNavigationStore();
   const { getToken } = useAuth();
   const isFolder = !!item.folder;
@@ -163,7 +165,7 @@ export function FileListItem({
           <Checkbox
             checked={isSelected}
             onChange={() => onToggle(item.id)}
-            aria-label={`Sélectionner ${item.name}`}
+            aria-label={`${t("explorer.selectAll")} ${item.name}`}
           />
         )}
       </div>
@@ -204,7 +206,7 @@ export function FileListItem({
 
       {/* Size */}
       <Text className={mergeClasses(styles.meta, styles.sizeCell)}>
-        {isFolder ? `${item.folder!.childCount} élém.` : formatFileSize(item.size)}
+        {isFolder ? `${item.folder!.childCount} ${t("common.items")}` : formatFileSize(item.size)}
       </Text>
 
       {/* Modified */}
@@ -213,7 +215,7 @@ export function FileListItem({
       {/* Hover actions */}
       <div className={mergeClasses(styles.actions, "actions")}>
         {onStartRename && (
-          <Tooltip content="Renommer" relationship="label">
+          <Tooltip content={t("dept.rename")} relationship="label">
             <Button
               appearance="subtle" size="small"
               icon={<Rename20Regular />}
@@ -222,7 +224,7 @@ export function FileListItem({
           </Tooltip>
         )}
         {!isFolder && (
-          <Tooltip content="Télécharger" relationship="label">
+          <Tooltip content={t("common.download")} relationship="label">
             <Button
               appearance="subtle" size="small"
               icon={<ArrowDownload20Regular />}
@@ -230,7 +232,7 @@ export function FileListItem({
             />
           </Tooltip>
         )}
-        <Tooltip content={isFolder ? "Ouvrir dans SharePoint" : "Ouvrir"} relationship="label">
+        <Tooltip content={isFolder ? t("explorer.openInSharePoint") : t("common.open")} relationship="label">
           <Button
             appearance="subtle" size="small"
             icon={<Open20Regular />}

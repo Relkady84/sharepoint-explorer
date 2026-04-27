@@ -23,6 +23,7 @@ import { useNavigationStore } from "../../store/navigationStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsAdmin } from "../../hooks/useAppPins";
 import { AssignPinDialog } from "./AssignPinDialog";
+import { useTranslation } from "../../i18n/useTranslation";
 
 const useStyles = makeStyles({
   toolbar: {
@@ -80,6 +81,7 @@ export function FileToolbar({ actions }: FileToolbarProps) {
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
 
+  const { t } = useTranslation();
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,12 +112,12 @@ export function FileToolbar({ actions }: FileToolbarProps) {
 
       {/* ── Selection checkbox ── */}
       {actions && (
-        <Tooltip content={allChecked ? "Tout désélectionner" : "Tout sélectionner"} relationship="label">
+        <Tooltip content={allChecked ? t("explorer.deselectAll") : t("explorer.selectAll")} relationship="label">
           <Checkbox
             checked={allChecked ? true : someChecked ? "mixed" : false}
             onChange={(_, d) => { if (d.checked) actions.onSelectAll(); else actions.onDeselectAll(); }}
             disabled={allIds.length === 0 || actions.isBusy}
-            aria-label="Tout sélectionner"
+            aria-label={t("explorer.selectAll")}
           />
         </Tooltip>
       )}
@@ -123,13 +125,17 @@ export function FileToolbar({ actions }: FileToolbarProps) {
       {/* ── Contextual actions (visible when items are selected) ── */}
       {actions && selCount > 0 && (
         <>
-          {/* Selection count */}
-          <Text className={styles.selectionCount}>{selCount} sélectionné{selCount > 1 ? "s" : ""}</Text>
+          <Text className={styles.selectionCount}>
+            {t("explorer.selectedCount").replace("{count}", String(selCount))}
+          </Text>
 
           <div className={styles.separator} />
 
           {/* Delete */}
-          <Tooltip content={`Supprimer ${selCount} élément${selCount > 1 ? "s" : ""}`} relationship="label">
+          <Tooltip
+            content={t("explorer.deleteCount").replace("{count}", String(selCount))}
+            relationship="label"
+          >
             <Button
               appearance="subtle" size="small"
               icon={actions.isDeleting ? <Spinner size="tiny" /> : <Delete20Regular />}
@@ -147,28 +153,20 @@ export function FileToolbar({ actions }: FileToolbarProps) {
               disabled={actions.isBusy}
               onClick={actions.onRenameFromToolbar}
             >
-              Renommer
+              {t("dept.rename")}
             </Button>
           )}
 
           {/* Copy */}
-          <Button
-            appearance="subtle" size="small"
-            icon={<Copy20Regular />}
-            disabled={actions.isBusy}
-            onClick={actions.onCopy}
-          >
-            Copier
+          <Button appearance="subtle" size="small" icon={<Copy20Regular />}
+            disabled={actions.isBusy} onClick={actions.onCopy}>
+            {t("dept.copy")}
           </Button>
 
           {/* Move */}
-          <Button
-            appearance="subtle" size="small"
-            icon={<ArrowMove20Regular />}
-            disabled={actions.isBusy}
-            onClick={actions.onMove}
-          >
-            Déplacer
+          <Button appearance="subtle" size="small" icon={<ArrowMove20Regular />}
+            disabled={actions.isBusy} onClick={actions.onMove}>
+            {t("dept.move")}
           </Button>
 
           <div className={styles.separator} />
@@ -179,51 +177,36 @@ export function FileToolbar({ actions }: FileToolbarProps) {
 
       {/* New folder */}
       {actions && (
-        <Button
-          appearance="subtle" size="small"
-          icon={<FolderAdd20Regular />}
-          disabled={actions.isBusy || !driveId}
-          onClick={actions.onNewFolder}
-        >
-          Nouveau dossier
+        <Button appearance="subtle" size="small" icon={<FolderAdd20Regular />}
+          disabled={actions.isBusy || !driveId} onClick={actions.onNewFolder}>
+          {t("dept.newFolder")}
         </Button>
       )}
 
       {/* Upload */}
-      <Tooltip content="Importer des fichiers" relationship="label">
-        <Button
-          appearance="primary" size="small"
-          icon={<ArrowUpload20Regular />}
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!driveId}
-        >
-          Importer
+      <Tooltip content={t("explorer.uploadTooltip")} relationship="label">
+        <Button appearance="primary" size="small" icon={<ArrowUpload20Regular />}
+          onClick={() => fileInputRef.current?.click()} disabled={!driveId}>
+          {t("dept.upload")}
         </Button>
       </Tooltip>
 
       <div className={styles.separator} />
 
       {/* Refresh */}
-      <Tooltip content="Actualiser" relationship="label">
-        <Button
-          appearance="subtle" size="small"
-          icon={<ArrowClockwise20Regular />}
-          onClick={handleRefresh}
-          disabled={!driveId}
-        />
+      <Tooltip content={t("explorer.refresh")} relationship="label">
+        <Button appearance="subtle" size="small" icon={<ArrowClockwise20Regular />}
+          onClick={handleRefresh} disabled={!driveId} />
       </Tooltip>
 
       {/* Pin — admin only */}
       {showPinButton && (
         <>
           <div className={styles.separator} />
-          <Tooltip content="Épingler ce dossier et l'assigner à des utilisateurs" relationship="label">
-            <Button
-              appearance="subtle" size="small"
-              icon={<Pin20Regular />}
-              onClick={() => setPinDialogOpen(true)}
-            >
-              Épingler…
+          <Tooltip content={t("explorer.pinTooltip")} relationship="label">
+            <Button appearance="subtle" size="small" icon={<Pin20Regular />}
+              onClick={() => setPinDialogOpen(true)}>
+              {t("explorer.pin")}
             </Button>
           </Tooltip>
         </>
@@ -231,13 +214,17 @@ export function FileToolbar({ actions }: FileToolbarProps) {
 
       {/* Upload status */}
       {uploadMutation.isPending && (
-        <><Spinner size="tiny" /><Text className={styles.statusText}>Importation…</Text></>
+        <><Spinner size="tiny" /><Text className={styles.statusText}>{t("explorer.uploading")}</Text></>
       )}
       {uploadMutation.isSuccess && (
-        <Text className={styles.statusText} style={{ color: tokens.colorPaletteGreenForeground1 }}>✓ Importé</Text>
+        <Text className={styles.statusText} style={{ color: tokens.colorPaletteGreenForeground1 }}>
+          {t("explorer.uploaded")}
+        </Text>
       )}
       {uploadMutation.isError && (
-        <Text className={styles.statusText} style={{ color: tokens.colorPaletteRedForeground1 }}>Échec — vérifiez les permissions</Text>
+        <Text className={styles.statusText} style={{ color: tokens.colorPaletteRedForeground1 }}>
+          {t("explorer.uploadFailed")}
+        </Text>
       )}
 
       {showPinButton && pinDialogOpen && (

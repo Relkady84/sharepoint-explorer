@@ -69,6 +69,34 @@ interface Bundle {
     newFolder: string;
     newFolderPlaceholder: string;
   };
+  explorer: {
+    noSite: string;
+    noSiteHint: string;
+    colName: string;
+    colSize: string;
+    colModified: string;
+    loadError: string;
+    loadErrorHint: string;
+    emptyFolder: string;
+    emptyFolderHint: string;  // no {query}
+    noResults: string;
+    noResultsHint: string;    // contains {query}
+    searching: string;
+    searchResults: string;    // contains {count} and {query}
+    selectAll: string;
+    deselectAll: string;
+    selectedCount: string;    // contains {count}
+    deleteCount: string;      // contains {count}  — tooltip
+    deleteConfirm: string;    // contains {count}  — confirm dialog
+    refresh: string;
+    pin: string;
+    pinTooltip: string;
+    uploading: string;
+    uploaded: string;
+    uploadFailed: string;
+    uploadTooltip: string;
+    openInSharePoint: string;
+  };
   settings: {
     title: string;
     languageSection: string;
@@ -160,6 +188,34 @@ const fr: Bundle = {
     move: "Déplacer",
     newFolder: "Nouveau dossier",
     newFolderPlaceholder: "Nom du dossier…",
+  },
+  explorer: {
+    noSite: "Aucun site sélectionné",
+    noSiteHint: "Choisissez un site SharePoint dans la liste déroulante.",
+    colName: "Nom",
+    colSize: "Taille",
+    colModified: "Modifié",
+    loadError: "Échec du chargement",
+    loadErrorHint: "Vérifiez vos permissions ou actualisez la page.",
+    emptyFolder: "Ce dossier est vide",
+    emptyFolderHint: "Glissez-déposez des fichiers ici, ou cliquez sur Importer.",
+    noResults: "Aucun résultat",
+    noResultsHint: 'Aucun fichier ne correspond à "{query}".',
+    searching: "Recherche en cours…",
+    searchResults: '{count} résultat(s) pour "{query}"',
+    selectAll: "Tout sélectionner",
+    deselectAll: "Tout désélectionner",
+    selectedCount: "{count} sélectionné(s)",
+    deleteCount: "Supprimer {count} élément(s)",
+    deleteConfirm: "Supprimer {count} élément(s) ? Cette action est irréversible.",
+    refresh: "Actualiser",
+    pin: "Épingler…",
+    pinTooltip: "Épingler ce dossier et l'assigner à des utilisateurs",
+    uploading: "Importation…",
+    uploaded: "✓ Importé",
+    uploadFailed: "Échec — vérifiez les permissions",
+    uploadTooltip: "Importer des fichiers",
+    openInSharePoint: "Ouvrir dans SharePoint",
   },
   settings: {
     title: "Paramètres",
@@ -256,6 +312,34 @@ const en: Bundle = {
     move: "Move",
     newFolder: "New folder",
     newFolderPlaceholder: "Folder name…",
+  },
+  explorer: {
+    noSite: "No site selected",
+    noSiteHint: "Choose a SharePoint site from the dropdown.",
+    colName: "Name",
+    colSize: "Size",
+    colModified: "Modified",
+    loadError: "Failed to load files",
+    loadErrorHint: "Check your permissions or try refreshing.",
+    emptyFolder: "This folder is empty",
+    emptyFolderHint: "Drag and drop files here, or click Upload.",
+    noResults: "No results found",
+    noResultsHint: 'No files match "{query}".',
+    searching: "Searching…",
+    searchResults: '{count} result(s) for "{query}"',
+    selectAll: "Select all",
+    deselectAll: "Deselect all",
+    selectedCount: "{count} selected",
+    deleteCount: "Delete {count} item(s)",
+    deleteConfirm: "Delete {count} item(s)? This action is irreversible.",
+    refresh: "Refresh",
+    pin: "Pin…",
+    pinTooltip: "Pin this folder and assign it to users",
+    uploading: "Uploading…",
+    uploaded: "✓ Uploaded",
+    uploadFailed: "Failed — check permissions",
+    uploadTooltip: "Upload files",
+    openInSharePoint: "Open in SharePoint",
   },
   settings: {
     title: "Settings",
