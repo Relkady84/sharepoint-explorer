@@ -118,8 +118,21 @@ export function useAppSettings(): UseAppSettingsResult {
     mutationFn: async (newSiteIds: string[]) => {
       const token = await getToken();
       await setAllowedSites(token, siteId!, newSiteIds, rawItems);
+      return newSiteIds; // pass to onSuccess
     },
-    onSuccess: () => {
+    onSuccess: (savedIds) => {
+      // Optimistically patch the cached SettingItem[] so the UI shows the
+      // correct checkboxes immediately, before the background refetch lands.
+      queryClient.setQueryData<SettingItem[]>(["appSettings", siteId], (old) => {
+        if (!old) return old;
+        const withoutAllowed = old.filter((it) => it.key !== "allowedSite");
+        const newAllowed: SettingItem[] = savedIds.map((id, i) => ({
+          listItemId: `opt-${i}`,
+          key: "allowedSite",
+          value: id,
+        }));
+        return [...withoutAllowed, ...newAllowed];
+      });
       queryClient.invalidateQueries({ queryKey: ["appSettings", siteId] });
     },
   });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   makeStyles,
   tokens,
@@ -134,47 +134,60 @@ export function SettingsPage() {
   const { settings, isLoading, isMissingList, error, update, updateAllowedSites, isUpdating } = useAppSettings();
   const { data: allSites, isLoading: sitesLoading } = useSites();
 
-  // ── Local pending state for the sites section ─��──────────────────────────
-  // null  = not yet edited; display is driven by server state
-  // array = user has made changes not yet saved to SharePoint
+  // ── Site picker "change" state ────────────────────────────────────────────
+  const [showSitePicker, setShowSitePicker] = useState(false);
+  const prevSiteIdRef = useRef(siteId);
+  // Auto-close the picker as soon as the user selects a different site
+  useEffect(() => {
+    if (siteId !== prevSiteIdRef.current) {
+      prevSiteIdRef.current = siteId;
+      setShowSitePicker(false);
+    }
+  }, [siteId]);
+
+  // ── Local pending state for the visible-sites section ────────────────────
+  // null        = no pending changes; UI driven by server state
+  // string[]    = explicit pending selection (may be empty = none, or all ids = all)
   const [pendingSites, setPendingSites] = useState<string[] | null>(null);
   const [isSavingSites, setIsSavingSites] = useState(false);
 
   const allSiteIds = (allSites ?? []).map((s) => s.id);
 
-  // Effective checked IDs shown in the UI.
-  // pending overrides server; empty pending means "all"
+  // effectiveIds === null  → all sites visible (server says "no restriction")
+  // effectiveIds === []    → no sites visible
+  // effectiveIds === [ids] → only those sites visible
+  const serverEffective: string[] | null =
+    settings.allowedSites.length === 0 ? null : settings.allowedSites;
   const effectiveIds: string[] | null =
-    pendingSites !== null
-      ? pendingSites.length === 0 ? null : pendingSites
-      : settings.allowedSites.length === 0 ? null : settings.allowedSites;
+    pendingSites !== null ? pendingSites : serverEffective;
 
   const isSiteChecked = (id: string) => effectiveIds === null || effectiveIds.includes(id);
-
   const allChecked = allSiteIds.length > 0 && allSiteIds.every((id) => isSiteChecked(id));
   const someChecked = !allChecked && allSiteIds.some((id) => isSiteChecked(id));
 
+  const handleSelectAll   = () => setPendingSites([...allSiteIds]);
+  const handleDeselectAll = () => setPendingSites([]);
+
   const handleSiteToggle = (toggledId: string, checked: boolean) => {
-    // Expand "all" to an explicit list before modifying so we can remove one entry
-    const base =
-      pendingSites !== null ? pendingSites
-      : settings.allowedSites.length === 0 ? allSiteIds
-      : settings.allowedSites;
+    // Expand null ("all") to an explicit list so we can add/remove one entry
+    const base: string[] = effectiveIds !== null ? [...effectiveIds] : [...allSiteIds];
     const next = checked
       ? base.includes(toggledId) ? base : [...base, toggledId]
       : base.filter((id) => id !== toggledId);
-    // Collapse back to [] (= all) if every site is selected
-    setPendingSites(allSiteIds.every((id) => next.includes(id)) ? [] : next);
+    setPendingSites(next);
   };
-
-  const handleSelectAll = () => setPendingSites([]); // [] = all visible
 
   const handleSaveSites = async () => {
     if (pendingSites === null) return;
+    // Convert full selection → [] (= "no restriction") before sending to server
+    const toSave =
+      allSiteIds.length > 0 && allSiteIds.every((id) => pendingSites.includes(id))
+        ? []
+        : pendingSites;
     setIsSavingSites(true);
     try {
-      await updateAllowedSites(pendingSites);
-      setPendingSites(null);
+      await updateAllowedSites(toSave);
+      setPendingSites(null); // cache is already optimistically updated in useAppSettings
     } catch (e) {
       console.error("Failed to save allowed sites:", e);
       alert((e as Error).message);
@@ -251,10 +264,31 @@ export function SettingsPage() {
             </MessageBar>
           ) : (
             <>
-              <div className={styles.currentSite}>
-                <CheckmarkCircle20Filled style={{ color: tokens.colorPaletteGreenForeground1 }} />
-                <Text>{siteName || siteId}</Text>
-              </div>
+              {showSitePicker ? (
+                <div className={styles.siteEmbed}>
+                  <SiteSelector />
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    onClick={() => setShowSitePicker(false)}
+                    style={{ margin: "4px 8px 8px" }}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              ) : (
+                <div className={styles.currentSite}>
+                  <CheckmarkCircle20Filled style={{ color: tokens.colorPaletteGreenForeground1 }} />
+                  <Text style={{ flex: 1 }}>{siteName || siteId}</Text>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    onClick={() => setShowSitePicker(true)}
+                  >
+                    Changer
+                  </Button>
+                </div>
+              )}
               <div className={styles.toggleRow}>
                 <Text className={styles.toggleLabel}>
                   {t("settings.showExplorerToAll")}
@@ -293,7 +327,7 @@ export function SettingsPage() {
                         label={<strong>{t("settings.sitesSelectAll")}</strong>}
                         checked={allChecked ? true : someChecked ? "mixed" : false}
                         disabled={isSavingSites}
-                        onChange={(_, d) => { if (d.checked) handleSelectAll(); }}
+                        onChange={(_, d) => { if (d.checked) handleSelectAll(); else handleDeselectAll(); }}
                       />
                     </div>
                     {/* Individual site rows */}
