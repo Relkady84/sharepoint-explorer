@@ -12,7 +12,10 @@
       "Bash(npm run *)",
       "Bash(gh run *)",
       "PowerShell(try { \\(Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 3\\).StatusCode } catch { \"DOWN: $_\" })",
-      "Bash(node -e \"const p=require\\('./node_modules/@tanstack/react-query/package.json'\\); console.log\\(p.version\\)\")"
+      "Bash(node -e \"const p=require\\('./node_modules/@tanstack/react-query/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
