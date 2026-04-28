@@ -16,7 +16,8 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(echo \"Exit: $?\")"
+      "Bash(echo \"Exit: $?\")",
+      "Bash(node -e \"const t = require\\('./node_modules/@fluentui/react-components'\\); const tokens = t.tokens; ['colorBrandStroke1','colorNeutralStroke1Hover','colorBrandBackground2Hover','colorCompoundBrandStroke','shadow4'].forEach\\(k => console.log\\(k, '→', tokens[k] ?? 'MISSING'\\)\\)\")"
     ]
   }
 }
