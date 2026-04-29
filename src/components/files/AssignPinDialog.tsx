@@ -129,7 +129,7 @@ export function AssignPinDialog(props: Props) {
       return;
     }
     if (!everyone && selectedEmails.length === 0) {
-      setErrorMsg("Ajoutez au moins un utilisateur, ou activez « Visible par tout le monde ».");
+      setErrorMsg("Ajoutez au moins un utilisateur ou groupe, ou activez « Visible par tout le monde ».");
       return;
     }
 
@@ -197,7 +197,7 @@ export function AssignPinDialog(props: Props) {
 
               {/* People picker — only shown when not "everyone" */}
               {!everyone && (
-                <Field label="Attribuer à des utilisateurs spécifiques">
+                <Field label="Attribuer à des utilisateurs ou des groupes">
                   <PeoplePicker
                     selected={selectedEmails}
                     onChange={setSelectedEmails}

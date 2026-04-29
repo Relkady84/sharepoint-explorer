@@ -10,6 +10,7 @@ import {
   deleteAppPin,
   type AppPin,
 } from "../api/pinsApi";
+import { createGraphClient } from "../api/graphClient";
 import { useAppSettings } from "./useAppSettings";
 
 export type { AppPin };
@@ -71,6 +72,21 @@ export function useAppPins() {
 
   const allPins = query.data ?? [];
 
+  // ── Fetch the current user's group memberships (for group-based pin visibility) ──
+  const memberOfQuery = useQuery({
+    queryKey: ["memberOf"],
+    queryFn: async () => {
+      const token = await getToken();
+      const client = createGraphClient(token);
+      const res = await client.get<{ value: { id: string }[] }>(
+        "/me/memberOf?$select=id&$top=999"
+      );
+      return new Set(res.data.value.map((g) => g.id));
+    },
+    staleTime: 1000 * 60 * 10, // 10 min
+  });
+  const userGroupIds = memberOfQuery.data ?? new Set<string>();
+
   // ── Pins the current user should see ──
   const myPins = useMemo(() => {
     return allPins.filter((pin) => {
@@ -80,11 +96,18 @@ export function useAppPins() {
       const raw = stripped.trim().toLowerCase();
       // empty / wildcard → visible to everyone
       if (!raw || raw === "everyone" || raw === "*" || raw === "all") return true;
-      // otherwise the user's email must be in the comma/semicolon/newline/space list
-      const emails = raw.split(/[,;\n\r\s]+/).map((s) => s.trim()).filter(Boolean);
-      return emails.includes(userEmail);
+      // Split on comma / semicolon / newline / whitespace
+      const entries = raw.split(/[,;\n\r\s]+/).map((s) => s.trim()).filter(Boolean);
+      return entries.some((entry) => {
+        // Group entry format: grp:{objectId}:{displayName} (case-insensitive stored)
+        if (entry.startsWith("grp:")) {
+          const groupId = entry.split(":")[1] ?? "";
+          return userGroupIds.has(groupId);
+        }
+        return entry === userEmail;
+      });
     });
-  }, [allPins, userEmail]);
+  }, [allPins, userEmail, userGroupIds]);
 
   // ── Mutations ──
 

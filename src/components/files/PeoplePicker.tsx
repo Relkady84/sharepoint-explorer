@@ -7,9 +7,10 @@ import {
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
-import { Person20Regular, Dismiss12Regular } from "@fluentui/react-icons";
+import { Person20Regular, People20Regular, Dismiss12Regular } from "@fluentui/react-icons";
 import { useAuth } from "../../auth/useAuth";
 import { searchUsers } from "../../api/usersApi";
+import { searchGroups } from "../../api/groupsApi";
 
 const useStyles = makeStyles({
   wrapper: { position: "relative" },
@@ -25,27 +26,52 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
     boxShadow: tokens.shadow16,
     zIndex: 9999,
-    maxHeight: "220px",
+    maxHeight: "260px",
     overflowY: "auto",
   },
   dropdownItem: {
     padding: "8px 12px",
     cursor: "pointer",
     display: "flex",
-    flexDirection: "column",
-    gap: "2px",
+    alignItems: "center",
+    gap: "10px",
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     "&:last-child": { borderBottom: "none" },
     "&:hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
+  },
+  dropdownIcon: {
+    flexShrink: 0,
+    color: tokens.colorNeutralForeground3,
+  },
+  dropdownIconGroup: {
+    flexShrink: 0,
+    color: tokens.colorBrandForeground1,
+  },
+  itemText: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1px",
+    overflow: "hidden",
   },
   itemName: {
     fontSize: tokens.fontSizeBase300,
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
-  itemEmail: {
+  itemSubtitle: {
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  itemSubtitleGroup: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorBrandForeground2,
+    fontWeight: tokens.fontWeightSemibold,
   },
   noResults: {
     padding: "10px 12px",
@@ -54,7 +80,7 @@ const useStyles = makeStyles({
     fontStyle: "italic",
   },
 
-  // ── Selected people tags ──
+  // ── Selected people/group tags ──
   tags: {
     display: "flex",
     flexWrap: "wrap",
@@ -65,7 +91,7 @@ const useStyles = makeStyles({
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    padding: "3px 10px 3px 10px",
+    padding: "3px 10px 3px 8px",
     backgroundColor: tokens.colorBrandBackground2,
     borderRadius: tokens.borderRadiusCircular,
     fontSize: tokens.fontSizeBase200,
@@ -74,10 +100,14 @@ const useStyles = makeStyles({
     maxWidth: "300px",
     overflow: "hidden",
   },
-  tagEmail: {
+  tagLabel: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  tagIcon: {
+    flexShrink: 0,
+    color: tokens.colorBrandForeground2,
   },
   tagRemove: {
     minWidth: "unset",
@@ -88,9 +118,42 @@ const useStyles = makeStyles({
   },
 });
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+/** Build the stored key for a group: "grp:{objectId}:{displayName}" */
+export function makeGroupKey(id: string, name: string): string {
+  return `grp:${id}:${name}`;
+}
+
+/** Extract the display label from any stored entry (email or grp: key). */
+export function getPrincipalLabel(entry: string): string {
+  if (entry.startsWith("grp:")) {
+    // Format: grp:{id}:{name} — name is everything after the second colon
+    const third = entry.indexOf(":", 4); // first ":" is at index 3 (after "grp")
+    return third >= 0 ? entry.slice(third + 1) : entry;
+  }
+  return entry;
+}
+
+/** Returns true if the entry represents a group. */
+export function isGroupEntry(entry: string): boolean {
+  return entry.startsWith("grp:");
+}
+
+// ── Combined result type ────────────────────────────────────────────────────────
+
+interface ResultItem {
+  key: string;       // stored value: email for users, "grp:{id}:{name}" for groups
+  name: string;      // display name
+  subtitle: string;  // email for users, "Groupe" for groups
+  kind: "user" | "group";
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 interface Props {
   selected: string[];
-  onChange: (emails: string[]) => void;
+  onChange: (values: string[]) => void;
   disabled?: boolean;
 }
 
@@ -99,7 +162,7 @@ export function PeoplePicker({ selected, onChange, disabled }: Props) {
   const { getToken } = useAuth();
 
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ name: string; email: string }[]>([]);
+  const [results, setResults] = useState<ResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -133,9 +196,20 @@ export function PeoplePicker({ selected, onChange, disabled }: Props) {
       setLoading(true);
       try {
         const token = await getToken();
-        const users = await searchUsers(token, value.trim());
-        // Filter out already-selected users
-        setResults(users.filter((u) => !selected.includes(u.email)));
+        const [users, groups] = await Promise.all([
+          searchUsers(token, value.trim()),
+          searchGroups(token, value.trim()),
+        ]);
+
+        const userItems: ResultItem[] = users
+          .filter((u) => !selected.includes(u.email))
+          .map((u) => ({ key: u.email, name: u.name, subtitle: u.email, kind: "user" }));
+
+        const groupItems: ResultItem[] = groups
+          .filter((g) => !selected.includes(makeGroupKey(g.id, g.name)))
+          .map((g) => ({ key: makeGroupKey(g.id, g.name), name: g.name, subtitle: "Groupe", kind: "group" }));
+
+        setResults([...userItems, ...groupItems]);
         setShowDropdown(true);
         setSearched(true);
       } catch {
@@ -147,9 +221,9 @@ export function PeoplePicker({ selected, onChange, disabled }: Props) {
     }, 350);
   };
 
-  const addUser = (email: string) => {
-    if (!selected.includes(email)) {
-      onChange([...selected, email]);
+  const addEntry = (key: string) => {
+    if (!selected.includes(key)) {
+      onChange([...selected, key]);
     }
     setQuery("");
     setResults([]);
@@ -157,8 +231,8 @@ export function PeoplePicker({ selected, onChange, disabled }: Props) {
     setSearched(false);
   };
 
-  const removeUser = (email: string) => {
-    onChange(selected.filter((e) => e !== email));
+  const removeEntry = (key: string) => {
+    onChange(selected.filter((e) => e !== key));
   };
 
   return (
@@ -167,7 +241,7 @@ export function PeoplePicker({ selected, onChange, disabled }: Props) {
       <Input
         value={query}
         onChange={(_, d) => handleInput(d.value)}
-        placeholder="Tapez un nom pour rechercher…"
+        placeholder="Tapez un nom pour rechercher un utilisateur ou groupe…"
         disabled={disabled}
         contentBefore={<Person20Regular />}
         contentAfter={loading ? <Spinner size="tiny" /> : undefined}
@@ -177,40 +251,54 @@ export function PeoplePicker({ selected, onChange, disabled }: Props) {
       {showDropdown && (
         <div className={styles.dropdown}>
           {results.length > 0 ? (
-            results.map((user) => (
+            results.map((item) => (
               <div
-                key={user.email}
+                key={item.key}
                 className={styles.dropdownItem}
-                // onMouseDown prevents the input blur from closing dropdown before click fires
+                // onMouseDown prevents input blur from closing dropdown before click fires
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  addUser(user.email);
+                  addEntry(item.key);
                 }}
               >
-                <Text className={styles.itemName}>{user.name}</Text>
-                <Text className={styles.itemEmail}>{user.email}</Text>
+                {item.kind === "group" ? (
+                  <People20Regular className={styles.dropdownIconGroup} />
+                ) : (
+                  <Person20Regular className={styles.dropdownIcon} />
+                )}
+                <div className={styles.itemText}>
+                  <Text className={styles.itemName}>{item.name}</Text>
+                  <Text className={item.kind === "group" ? styles.itemSubtitleGroup : styles.itemSubtitle}>
+                    {item.subtitle}
+                  </Text>
+                </div>
               </div>
             ))
           ) : searched && !loading ? (
-            <Text className={styles.noResults}>Aucun utilisateur trouvé.</Text>
+            <Text className={styles.noResults}>Aucun utilisateur ou groupe trouvé.</Text>
           ) : null}
         </div>
       )}
 
-      {/* Selected users as tags */}
+      {/* Selected tags */}
       {selected.length > 0 && (
         <div className={styles.tags}>
-          {selected.map((email) => (
-            <div key={email} className={styles.tag}>
-              <span className={styles.tagEmail} title={email}>
-                {email}
+          {selected.map((entry) => (
+            <div key={entry} className={styles.tag}>
+              {isGroupEntry(entry) ? (
+                <People20Regular style={{ width: 14, height: 14 }} className={styles.tagIcon} />
+              ) : (
+                <Person20Regular style={{ width: 14, height: 14 }} className={styles.tagIcon} />
+              )}
+              <span className={styles.tagLabel} title={entry}>
+                {getPrincipalLabel(entry)}
               </span>
               <Button
                 className={styles.tagRemove}
                 appearance="transparent"
                 size="small"
                 icon={<Dismiss12Regular />}
-                onClick={() => removeUser(email)}
+                onClick={() => removeEntry(entry)}
                 disabled={disabled}
               />
             </div>
