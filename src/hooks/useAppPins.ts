@@ -32,8 +32,9 @@ const ADMIN_EMAILS: string[] = (import.meta.env.VITE_ADMIN_EMAILS ?? "")
 // ── Current user helpers ──────────────────────────────────────────────────────
 
 export function useCurrentUserEmail(): string {
-  const { accounts } = useMsal();
-  return (accounts[0]?.username ?? "").toLowerCase();
+  const { instance, accounts } = useMsal();
+  const account = instance.getActiveAccount() ?? accounts[0] ?? null;
+  return (account?.username ?? "").toLowerCase();
 }
 
 export function useIsAdmin(): boolean {
