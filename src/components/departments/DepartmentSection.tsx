@@ -142,6 +142,7 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
     textAlign: "right",
     whiteSpace: "nowrap",
+    "@media (max-width: 600px)": { display: "none" },
   },
   metaDate: {
     width: "120px",
@@ -150,6 +151,7 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
     textAlign: "right",
     whiteSpace: "nowrap",
+    "@media (max-width: 600px)": { display: "none" },
   },
   actions: {
     width: "88px",
@@ -159,6 +161,7 @@ const useStyles = makeStyles({
     justifyContent: "flex-end",
     opacity: 0,
     transition: "opacity 0.15s ease",
+    "@media (hover: none)": { opacity: 1 },
   },
 
   // ── Sub-folder loading ──
