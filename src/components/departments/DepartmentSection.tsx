@@ -124,6 +124,11 @@ const useStyles = makeStyles({
     whiteSpace: "nowrap",
     color: tokens.colorNeutralForeground1,
     minWidth: 0,
+    "@media (max-width: 600px)": {
+      whiteSpace: "normal",
+      textOverflow: "clip",
+      wordBreak: "break-word",
+    },
   },
   folderNameText: {
     fontWeight: tokens.fontWeightSemibold,

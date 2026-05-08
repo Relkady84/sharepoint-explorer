@@ -41,6 +41,7 @@ const useStyles = makeStyles({
     "@media (hover: none)": { "& .actions": { opacity: 1 } },
     "@media (max-width: 600px)": {
       gridTemplateColumns: GRID_MOBILE,
+      alignItems: "start",
       gap: "6px",
       padding: "8px 12px",
     },
@@ -63,6 +64,9 @@ const useStyles = makeStyles({
     gap: "0px",
     overflow: "hidden",
     minWidth: 0,
+    "@media (max-width: 600px)": {
+      alignItems: "flex-start",
+    },
   },
   name: {
     fontSize: tokens.fontSizeBase300,
@@ -71,6 +75,11 @@ const useStyles = makeStyles({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     color: tokens.colorNeutralForeground1,
+    "@media (max-width: 600px)": {
+      whiteSpace: "normal",
+      textOverflow: "clip",
+      wordBreak: "break-word",
+    },
   },
   folderName: {
     fontWeight: tokens.fontWeightSemibold,
