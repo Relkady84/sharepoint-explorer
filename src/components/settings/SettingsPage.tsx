@@ -19,7 +19,7 @@ import { Settings24Regular, CheckmarkCircle20Filled, DismissRegular, PersonSearc
 import { useAuth } from "../../auth/useAuth";
 import { searchUsers, type UserResult } from "../../api/usersApi";
 import { useAppSettings } from "../../hooks/useAppSettings";
-import { useIsAdmin } from "../../hooks/useAppPins";
+import { useIsAdmin, useCurrentUserEmail } from "../../hooks/useAppPins";
 import { useTranslation } from "../../i18n/useTranslation";
 import { LANGS, type Lang } from "../../i18n/strings";
 import { useNavigationStore } from "../../store/navigationStore";
@@ -166,6 +166,7 @@ export function SettingsPage() {
   const styles = useStyles();
   const { t, lang, setLang } = useTranslation();
   const isAdmin = useIsAdmin();
+  const detectedEmail = useCurrentUserEmail();
   const { siteId, siteName } = useNavigationStore();
 
   const { getToken } = useAuth();
@@ -339,6 +340,10 @@ export function SettingsPage() {
               <MessageBarBody>
                 <MessageBarTitle>{t("settings.needAdminTitle")}</MessageBarTitle>
                 {t("settings.needAdminBody")}
+                <span style={{ display: "block", marginTop: "8px", fontFamily: "monospace", fontSize: "11px", lineHeight: "1.6" }}>
+                  Compte détecté : <strong>{detectedEmail || "(inconnu)"}</strong><br />
+                  VITE_ADMIN_EMAILS : <strong>{import.meta.env.VITE_ADMIN_EMAILS || "(non défini — redémarrez le serveur)"}</strong>
+                </span>
               </MessageBarBody>
             </MessageBar>
           ) : !siteId ? (
