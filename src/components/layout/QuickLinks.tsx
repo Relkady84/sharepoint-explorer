@@ -2,7 +2,6 @@ import { makeStyles, tokens, Button } from "@fluentui/react-components";
 import {
   GlobeRegular,
   MailRegular,
-  NotebookRegular,
   CalendarLtrRegular,
 } from "@fluentui/react-icons";
 import { useTranslation } from "../../i18n/useTranslation";
@@ -26,12 +25,6 @@ const LINKS: Link[] = [
     labelKey: "quicklinks.outlook",
     href: "https://outlook.office.com/mail/",
     icon: <MailRegular />,
-  },
-  {
-    labelKey: "quicklinks.notes",
-    href: "https://www.onenote.com/notebooks",
-    icon: <NotebookRegular />,
-    popup: { width: 1100, height: 750 },
   },
   {
     labelKey: "quicklinks.pronote",
